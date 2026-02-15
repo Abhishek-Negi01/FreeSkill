@@ -13,10 +13,10 @@ import {
 import { authenticateUser } from "../middlewares/auth.middlewares.js";
 
 // protected routes
-router.route("/createCourse").post(authenticateUser, createCourse);
-router.route("/getAllCourse").get(authenticateUser, getAllCourse);
-router.route("/course/:courseId").get(authenticateUser, getCourse);
-router.route("/updateCourse/:courseId").put(authenticateUser, updateCourse);
-router.route("/deleteCourse/:courseId").delete(authenticateUser, deleteCourse);
+router.route("/").post(authenticateUser, createCourse); // create course
+router.route("/").get(authenticateUser, getAllCourse); // get all courses of the user
+router.route("/:courseId").get(authenticateUser, getCourse); // get a specific course of the user
+router.route("/:courseId").put(authenticateUser, updateCourse); // update a specific course of the user
+router.route("/:courseId").delete(authenticateUser, deleteCourse); // delete a specific course of the user
 
 export default router;

@@ -5,6 +5,7 @@ import {
   getAllVideos,
   getVideo,
   deleteVideo,
+  markVideoAsCompleted,
 } from "../controllers/video.controllers.js";
 
 const router = Router();
@@ -13,5 +14,8 @@ router.route("/:courseId").post(authenticateUser, addVideo); // add video to cou
 router.route("/:courseId").get(authenticateUser, getAllVideos); // get all videos of course
 router.route("/:videoId").patch(authenticateUser, getVideo); // get video by id
 router.route("/:videoId").delete(authenticateUser, deleteVideo); // delete video by id
+router
+  .route("/:videoId/complete")
+  .patch(authenticateUser, markVideoAsCompleted); // mark video as completed
 
 export default router;

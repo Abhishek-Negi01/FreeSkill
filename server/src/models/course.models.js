@@ -15,23 +15,10 @@ const CourseSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-
-    videos: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Video",
-      },
-    ],
-    isCompleted: {
-      type: Boolean,
-      default: false,
-    },
-    progress: {
-      type: Number,
-      default: 0,
-    },
   },
   { timestamps: true },
 );
+
+CourseSchema.index({ title: 1, creator: 1 }, { unique: true });
 
 export const Course = mongoose.model("Course", CourseSchema);

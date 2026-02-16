@@ -17,8 +17,12 @@ app.use(cookieParser());
 
 import healthCheckRouter from "./routes/healthcheck.routes.js";
 import userRouter from "./routes/user.routes.js";
+import courseRouter from "./routes/course.routes.js";
+import videoRouter from "./routes/video.routes.js";
 
 app.use("/api/healthcheck", healthCheckRouter);
 app.use("/api/users", userRouter);
+app.use("/api/courses", courseRouter);
+app.use("/api/videos", videoRouter);
 
 export { app };

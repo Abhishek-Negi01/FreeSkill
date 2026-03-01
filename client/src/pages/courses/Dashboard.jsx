@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { courseService } from "../../api/services/courses.js";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const Dashboard = () => {
   const [courses, setCourses] = useState([]);
@@ -8,53 +9,75 @@ const Dashboard = () => {
   const [courseDescription, setCourseDescription] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const createCourse = (e) => {
+  const filteredCourses = courses.filter((course) =>
+    course.title.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const createCourse = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
-    courseService
-      .create({ title: courseTitle, description: courseDescription })
-      .then((res) => {
-        setCourses([...courses, res.data.data.course]);
-        // console.log(res.data.data.course);
-        setCourseTitle("");
-        setCourseDescription("");
-        setShowForm(false);
-      })
-      .catch((err) => console.log(err));
-  };
-
-  const updateCourse = (e) => {
-    e.preventDefault();
-    courseService
-      .update(editingCourse._id, {
+    try {
+      const res = await courseService.create({
         title: courseTitle,
+
         description: courseDescription,
-      })
-      .then((res) => {
-        setCourses(
-          courses.map((c) =>
-            c._id === editingCourse._id ? res.data.data.course : c,
-          ),
-        );
-        setCourseTitle("");
-        setCourseDescription("");
-        setEditingCourse(null);
-        setShowForm(false);
-      })
-      .catch((err) => console.log(err));
+      });
+
+      setCourses([...courses, res.data.data.course]);
+      setCourseTitle("");
+      setCourseDescription("");
+      setShowForm(false);
+      toast.success(res?.data?.message || "Course created successfully!");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to create course");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteCourse = (courseId) => {
+  const updateCourse = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const res = await courseService.update(
+        editingCourse._id,
+
+        { title: courseTitle, description: courseDescription },
+      );
+
+      setCourses(
+        courses.map((c) =>
+          c._id === editingCourse._id ? res.data.data.course : c,
+        ),
+      );
+      setCourseTitle("");
+      setCourseDescription("");
+      setEditingCourse(null);
+      setShowForm(false);
+      toast.success(res?.data?.message || "Course updated successfully!");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update course");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteCourse = async (courseId) => {
     if (!confirm("Delete this course? All videos will be lost.")) {
       return;
     }
-    courseService
-      .delete(courseId)
-      .then(() => {
-        setCourses(courses.filter((c) => c._id !== courseId));
-      })
-      .catch((err) => console.log(err));
+    try {
+      const res = await courseService.delete(courseId);
+      setCourses(courses.filter((c) => c._id !== courseId));
+      toast.success(res?.data?.message || "Course deleted successfully!");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete course");
+    }
   };
 
   const startEdit = (course, e) => {
@@ -79,7 +102,10 @@ const Dashboard = () => {
         // console.log("Full response : ", res.data);
         setCourses(res.data.data.courses);
       })
-      .catch((err) => console.log(err));
+      .catch((err) => {
+        toast.error("Failed to load courses");
+        console.log(err);
+      });
   }, []);
 
   return (
@@ -93,6 +119,18 @@ const Dashboard = () => {
           {showForm ? "Cancel" : "+ Create Course"}
         </button>
       </div>
+
+      {!showForm && courses.length > 0 && (
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search courses"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 "
+          />
+        </div>
+      )}
 
       {/* Create/Edit course form */}
       {showForm && (
@@ -110,6 +148,7 @@ const Dashboard = () => {
                 onChange={(e) => setCourseTitle(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 required
+                disabled={loading}
               />
             </div>
             <div className="mb-4">
@@ -120,19 +159,26 @@ const Dashboard = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 rows={3}
                 required
+                disabled={loading}
               />
             </div>
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+                disabled={loading}
+                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:bg-gray-400"
               >
-                {editingCourse ? "Update Course" : "Create Course"}
+                {loading
+                  ? "Saving..."
+                  : editingCourse
+                    ? "Update Course"
+                    : "Create Course"}
               </button>
               {editingCourse && (
                 <button
                   type="button"
                   onClick={cancelForm}
+                  disabled={loading}
                   className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
                 >
                   Cancel
@@ -143,14 +189,16 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* all courses list */}
+      {/* all courses list considering flitered courses */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {courses.length === 0 ? (
+        {filteredCourses.length === 0 ? (
           <p className="text-gray-500">
-            No courses yet, Create your first course!
+            {searchQuery
+              ? "No courses found matching your search"
+              : "No courses yet, Create your first course!"}
           </p>
         ) : (
-          courses.map((course) => (
+          filteredCourses.map((course) => (
             <div
               key={course._id}
               className="border border-gray-200 p-6 rounded-lg shadow hover:shadow-lg transition"

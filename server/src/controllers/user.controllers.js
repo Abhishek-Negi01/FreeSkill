@@ -153,8 +153,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const cookieOptions = {
     httpOnly: true,
-    secure: false, // true ONLY in production (https)
-    sameSite: "lax", // use "none" if production
+    secure: true,
+    sameSite: "None",
   };
 
   return res
@@ -187,8 +187,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   const cookieOptions = {
     httpOnly: true,
-    secure: false, // true ONLY in production (https)
-    sameSite: "lax", // use "none" if production
+    secure: true,
+    sameSite: "None",
   };
 
   return res
@@ -244,8 +244,8 @@ const deleteUser = asyncHandler(async (req, res) => {
 
     const cookieOptions = {
       httpOnly: true,
-      secure: false, // true ONLY in production (https)
-      sameSite: "lax", // use "none" if production
+      secure: true,
+      sameSite: "None",
     };
 
     return res

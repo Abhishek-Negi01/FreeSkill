@@ -27,10 +27,13 @@ const Register = () => {
         "Registration successful! Please check your email to verify your account.",
       );
       navigate("/login", {
-        state: { message: "Please verify your email before logging in." },
+        state: {
+          message:
+            "Check your email and Please verify your email before logging in.",
+        },
       });
     } catch (error) {
-      const errorMsg = "Registration failed";
+      const errorMsg = "Please Retry Registration failed";
       setError(errorMsg);
       toast.error(errorMsg);
       setPassword("");

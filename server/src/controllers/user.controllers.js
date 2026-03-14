@@ -109,7 +109,11 @@ const registerUser = asyncHandler(async (req, res) => {
     { expiresIn: "24h" },
   );
 
-  await sendVerificationEmail(email, token);
+  try {
+    await sendVerificationEmail(email, token);
+  } catch (emailErr) {
+    console.error("Email send failed:", emailErr.message);
+  }
 
   return res.status(201).json({
     success: true,

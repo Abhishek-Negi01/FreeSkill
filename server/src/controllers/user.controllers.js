@@ -4,7 +4,7 @@ import bcryptjs from "bcryptjs";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import { REFRESH_TOKEN_SECRET } from "../utils/dotenv.js";
+import { REFRESH_TOKEN_SECRET, ACCESS_TOKEN_SECRET } from "../utils/dotenv.js";
 import crypto from "crypto";
 import {
   sendPasswordResetEmail,
@@ -98,18 +98,18 @@ const registerUser = asyncHandler(async (req, res) => {
     );
   }
 
-  const user = await User.create({ username, fullname, email, password });
-  if (!user) {
-    throw new ApiError(500, "Failed to create user.");
-  }
+  // hash password manually — no pre-save hook since we're not saving yet
+  const salt = await bcryptjs.genSalt(10);
+  const hashedPassword = await bcryptjs.hash(password, salt);
 
-  // send verification email automatically
-  const token = crypto.randomBytes(32).toString("hex");
-  await User.findByIdAndUpdate(user._id, {
-    emailVerificationToken: token,
-    emailVerificationExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
-  });
-  await sendVerificationEmail(user.email, token);
+  // embed user data in JWT — no DB write until email is verified
+  const token = jwt.sign(
+    { username, fullname, email, password: hashedPassword },
+    ACCESS_TOKEN_SECRET,
+    { expiresIn: "24h" },
+  );
+
+  await sendVerificationEmail(email, token);
 
   return res.status(201).json({
     success: true,
@@ -340,29 +340,31 @@ const verifyEmail = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Token is required");
   }
 
-  const user = await User.findOne({ emailVerificationToken: token });
-
-  if (!user) {
-    // token already cleared — check if a verified user had this token recently
-    // not possible without storing it, so handle in frontend
-    throw new ApiError(400, "Invalid or expired token");
+  let decoded;
+  try {
+    decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+  } catch (err) {
+    throw new ApiError(400, "Invalid or expired verification link");
   }
 
-  if (user.emailVerificationExpiry < Date.now()) {
-    throw new ApiError(400, "Verification link has expired");
-  }
+  const { username, fullname, email, password } = decoded;
 
-  // already verified (second StrictMode call) — return success
-  if (user.isEmailVerified) {
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
     return res
       .status(200)
       .json(new ApiResponse(200, {}, "Email verified successfully"));
   }
 
-  // first call — verify and keep token for a short window (don't unset yet)
-  await User.findByIdAndUpdate(user._id, {
+  await User.collection.insertOne({
+    username,
+    fullname,
+    email,
+    password, // already hashed
     isEmailVerified: true,
-    emailVerificationExpiry: new Date(Date.now() + 60 * 1000), // keep token alive 60 more seconds
+    bookmarkedQuestions: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 
   return res

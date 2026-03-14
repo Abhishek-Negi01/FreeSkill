@@ -185,9 +185,7 @@ const Register = () => {
                 style={{ background: "white", color: "#1f2937" }}
               />
             </div>
-            <p className="text-xs mt-1" style={{ color: "#9ca3af" }}>
-              Minimum 6 characters
-            </p>
+
             <p className="text-xs mt-1" style={{ color: "#9ca3af" }}>
               Minimum 6 characters — remember your password, reset is currently
               unavailable

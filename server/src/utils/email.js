@@ -1,19 +1,13 @@
-import nodemailer from "nodemailer";
-import { EMAIL_PASS, EMAIL_USER, FRONTEND_URL } from "./dotenv.js";
+import { Resend } from "resend";
+import { FRONTEND_URL, RESEND_API_KEY } from "./dotenv.js";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASS,
-  },
-});
+const resend = new Resend(RESEND_API_KEY);
 
 export const sendVerificationEmail = async (email, token) => {
-  const verificationUrl = `${FRONTEND_URL}/verify-email?token=${token}`;
+  const verificationUrl = `${FRONTEND_URL}/verify-email?token=${encodeURIComponent(token)}`;
 
-  await transporter.sendMail({
-    from: EMAIL_USER,
+  await resend.emails.send({
+    from: "FreeSkill <onboarding@resend.dev>",
     to: email,
     subject: "Verify Your Email - FreeSkill",
     html: `
@@ -26,17 +20,17 @@ export const sendVerificationEmail = async (email, token) => {
 };
 
 export const sendPasswordResetEmail = async (email, token) => {
-  const resetUrl = `${FRONTEND_URL}/reset-password?token=${token}`;
+  const resetUrl = `${FRONTEND_URL}/reset-password?token=${encodeURIComponent(token)}`;
 
-  await transporter.sendMail({
-    from: EMAIL_USER,
+  await resend.emails.send({
+    from: "FreeSkill <onboarding@resend.dev>",
     to: email,
     subject: "Reset Your Password - FreeSkill",
     html: `
-        <h1>Password Reset</h1>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-        <p>This link expires in 1 hour.</p>
-      `,
+      <h1>Password Reset</h1>
+      <p>Click the link below to reset your password:</p>
+      <a href="${resetUrl}">${resetUrl}</a>
+      <p>This link expires in 1 hour.</p>
+    `,
   });
 };

@@ -13,4 +13,5 @@ export const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY;
 export const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 export const EMAIL_USER = process.env.EMAIL_USER;
 export const EMAIL_PASS = process.env.EMAIL_PASS;
-export const FRONTEND_URL = process.env.FRONTEND_URL
+export const FRONTEND_URL = process.env.FRONTEND_URL;
+export const RESEND_API_KEY = process.env.RESEND_API_KEY;

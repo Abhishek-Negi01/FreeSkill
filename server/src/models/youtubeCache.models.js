@@ -6,16 +6,8 @@ const youtubeCacheSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  videos: [
-    {
-      videoId: String,
-      title: String,
-      thumbnail: String,
-      channelTitle: String,
-      duration: String,
-      views: String,
-    },
-  ],
+  videos: mongoose.Schema.Types.Mixed,
+  nextPageToken: String,
   createdAt: {
     type: Date,
     default: Date.now,

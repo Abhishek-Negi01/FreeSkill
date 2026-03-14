@@ -6,4 +6,5 @@ export const videoServices = {
   addVideo: (courseId, videoData) => api.post(`/videos/${courseId}`, videoData),
   markCompleted: (videoId) => api.patch(`/videos/${videoId}/complete`),
   deleteVideo: (videoId) => api.delete(`/videos/${videoId}`),
+  getPublicVideos: (courseId) => api.get(`/videos/public/${courseId}`),
 };

@@ -3,6 +3,7 @@ import { Video } from "../models/video.models.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { Answer } from "../models/answer.models.js";
 
 const createQuestion = asyncHandler(async (req, res) => {
   const userId = req?.user?._id; // from auth middleware
@@ -58,10 +59,28 @@ const getQuestionsByVideo = asyncHandler(async (req, res) => {
     .populate("acceptedAnswer")
     .sort({ createdAt: -1 });
 
+  // get answer count for every question
+  const questionWithAnswerCount = await Promise.all(
+    questions.map(async (question) => {
+      const answerCount = await Answer.countDocuments({
+        question: question._id,
+      });
+
+      return {
+        ...question.toObject(),
+        answerCount,
+      };
+    }),
+  );
+
   return res
     .status(200)
     .json(
-      new ApiResponse(200, { questions }, "Questions fetched successfully"),
+      new ApiResponse(
+        200,
+        { questions: questionWithAnswerCount },
+        "Questions fetched successfully",
+      ),
     );
 });
 
@@ -74,7 +93,7 @@ const getQuestionById = asyncHandler(async (req, res) => {
 
   const question = await Question.findById(questionId)
     .populate("askedBy", "username fullname")
-    .populate("video", "title")
+    .populate("video", "title thumbnail channelTitle course")
     .populate("acceptedAnswer");
 
   if (!question) {
@@ -275,10 +294,28 @@ const getAllQuestions = asyncHandler(async (req, res) => {
     .populate("acceptedAnswer")
     .sort({ createdAt: -1 });
 
+  // also get answer count for each question
+
+  const questionWithAnswerCount = await Promise.all(
+    questions.map(async (question) => {
+      const answerCount = await Answer.countDocuments({
+        question: question._id,
+      });
+      return {
+        ...question.toObject(),
+        answerCount,
+      };
+    }),
+  );
+
   return res
     .status(200)
     .json(
-      new ApiResponse(200, { questions }, "All questions fetched successfully"),
+      new ApiResponse(
+        200,
+        { questions: questionWithAnswerCount },
+        "All questions fetched successfully",
+      ),
     );
 });
 

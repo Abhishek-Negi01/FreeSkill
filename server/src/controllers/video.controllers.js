@@ -179,6 +179,50 @@ const markVideoAsCompleted = asyncHandler(async (req, res) => {
     );
 });
 
+const reorderVideos = asyncHandler(async (req, res) => {
+  const { courseId } = req.params;
+  const { videoOrders } = req.body; // array of {videoId,order}
 
+  if (!videoOrders || !Array.isArray(videoOrders)) {
+    throw new ApiError(400, "Video orders array is required");
+  }
 
-export { addVideo, getAllVideos, getVideo, deleteVideo, markVideoAsCompleted };
+  // update each video order
+  await Promise.all(
+    videoOrders.map(({ videoId, order }) =>
+      Video.findByIdAndUpdate(videoId, { order }),
+    ),
+  );
+
+  const videos = await Video.find({ course: courseId }).sort({ order: 1 });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { videos }, "Videos reordered successfully"));
+});
+
+const getPublicVideos = asyncHandler(async (req, res) => {
+  const { courseId } = req.params;
+
+  const course = await Course.findOne({ _id: courseId, isPublic: true });
+
+  if (!course) {
+    throw new ApiError(404, "Public course not found");
+  }
+
+  const videos = await Video.find({ course: courseId }).sort({ order: -1 });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { videos }, "Videos fetched successfully"));
+});
+
+export {
+  addVideo,
+  getAllVideos,
+  getVideo,
+  deleteVideo,
+  markVideoAsCompleted,
+  reorderVideos,
+  getPublicVideos,
+};

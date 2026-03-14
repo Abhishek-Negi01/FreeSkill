@@ -8,24 +8,26 @@ import { Course } from "../models/course.models.js";
 import { Video } from "../models/video.models.js";
 
 const searchYoutubeVideos = asyncHandler(async (req, res) => {
-  const { query } = req.query;
+  const { query, pageToken } = req.query;
 
   if (!query) {
     throw new ApiError(400, "search query is required");
   }
 
-  const cachedResult = await YoutubeCache.findOne({ query });
+  const cacheKey = pageToken ? `${query}_${pageToken}` : query;
+  const cachedResult = await YoutubeCache.findOne({ query: cacheKey });
 
   if (cachedResult) {
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          { videos: cachedResult.videos },
-          "videos fetched from cache",
-        ),
-      );
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          videos: cachedResult.videos,
+          nextPageToken: cachedResult.nextPageToken,
+        },
+        "videos fetched from cache",
+      ),
+    );
   }
 
   // first call for search results
@@ -38,6 +40,7 @@ const searchYoutubeVideos = asyncHandler(async (req, res) => {
         key: YOUTUBE_API_KEY,
         maxResults: 10,
         type: "video",
+        pageToken: pageToken || undefined,
       },
     },
   );
@@ -45,6 +48,7 @@ const searchYoutubeVideos = asyncHandler(async (req, res) => {
   //   console.log(searchResponse);
 
   const videoIds = searchResponse.data.items.map((item) => item.id.videoId);
+  const nextPageToken = searchResponse.data.nextPageToken;
 
   // second call for video details
   const videoResponse = await axios.get(
@@ -87,16 +91,139 @@ const searchYoutubeVideos = asyncHandler(async (req, res) => {
 
   videos.sort((a, b) => parseInt(b.views) - parseInt(a.views)); // sort videos by views in descending order
 
-  videos = videos.slice(0, 10); // top 10 videos
-
   await YoutubeCache.create({
-    query,
+    query: cacheKey,
     videos,
+    nextPageToken,
   });
 
   return res
     .status(200)
-    .json(new ApiResponse(200, { videos }, "fresh video search successful"));
+    .json(
+      new ApiResponse(
+        200,
+        { videos, nextPageToken },
+        "fresh video search successful",
+      ),
+    );
+});
+
+const smartSearch = asyncHandler(async (req, res) => {
+  const { query, type = "all", pageToken } = req.query;
+
+  if (!query) {
+    throw new ApiError(400, "search query is required");
+  }
+
+  const cacheKey = `smart_${type}_${query}_${pageToken || ""}`;
+  const cachedResult = await YoutubeCache.findOne({ query: cacheKey });
+
+  if (cachedResult) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, cachedResult.videos, "results fetched from cache"),
+      );
+  }
+
+  const searchType = type === "all" ? "video,playlist" : type;
+
+  const searchResponse = await axios.get(
+    "https://www.googleapis.com/youtube/v3/search",
+    {
+      params: {
+        part: "snippet",
+        q: query,
+        key: YOUTUBE_API_KEY,
+        maxResults: 15,
+        type: searchType,
+        pageToken: pageToken || undefined,
+      },
+    },
+  );
+
+  const videoIds = [];
+  const playlistIds = [];
+  const results = [];
+
+  searchResponse.data.items.forEach((item) => {
+    if (item.id.kind === "youtube#video") {
+      videoIds.push(item.id.videoId);
+    } else if (item.id.kind === "youtube#playlist") {
+      playlistIds.push(item.id.playlistId);
+    }
+  });
+
+  if (videoIds.length > 0) {
+    const videoResponse = await axios.get(
+      "https://www.googleapis.com/youtube/v3/videos",
+      {
+        params: {
+          part: "snippet,contentDetails,statistics",
+          id: videoIds.join(","),
+          key: YOUTUBE_API_KEY,
+        },
+      },
+    );
+
+    videoResponse.data.items.forEach((item) => {
+      const duration = item.contentDetails.duration;
+      const views = parseInt(item.statistics.viewCount || 0);
+
+      if ((duration.includes("M") || duration.includes("H")) && views >= 5000) {
+        results.push({
+          type: "video",
+          videoId: item.id,
+          title: item.snippet.title,
+          thumbnail: item.snippet.thumbnails.medium.url,
+          channelTitle: item.snippet.channelTitle,
+          duration: duration,
+          views: item.statistics.viewCount,
+        });
+      }
+    });
+  }
+
+  if (playlistIds.length > 0) {
+    const playlistResponse = await axios.get(
+      "https://www.googleapis.com/youtube/v3/playlists",
+      {
+        params: {
+          part: "snippet,contentDetails",
+          id: playlistIds.join(","),
+          key: YOUTUBE_API_KEY,
+        },
+      },
+    );
+
+    playlistResponse.data.items.forEach((item) => {
+      results.push({
+        type: "playlist",
+        playlistId: item.id,
+        title: item.snippet.title,
+        thumbnail: item.snippet.thumbnails.medium.url,
+        channelTitle: item.snippet.channelTitle,
+        videoCount: item.contentDetails.itemCount,
+      });
+    });
+  }
+
+  const nextPageToken = searchResponse.data.nextPageToken;
+
+  await YoutubeCache.create({
+    query: cacheKey,
+    videos: { results, nextPageToken },
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { results, nextPageToken },
+        "smart search successful",
+      ),
+    );
 });
 
 const importVideoByUrl = asyncHandler(async (req, res) => {
@@ -354,4 +481,4 @@ const importPlaylist = asyncHandler(async (req, res) => {
   );
 });
 
-export { searchYoutubeVideos, importVideoByUrl, importPlaylist };
+export { searchYoutubeVideos, smartSearch, importVideoByUrl, importPlaylist };

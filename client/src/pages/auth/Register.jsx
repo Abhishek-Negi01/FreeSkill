@@ -23,10 +23,14 @@ const Register = () => {
 
     try {
       await register({ fullname, username, email, password });
-      toast.success("Registration successful! Please login.");
-      navigate("/login");
+      toast.success(
+        "Registration successful! Please check your email to verify your account.",
+      );
+      navigate("/login", {
+        state: { message: "Please verify your email before logging in." },
+      });
     } catch (error) {
-      const errorMsg = error?.response?.data?.message || "Registration failed";
+      const errorMsg = "Registration failed";
       setError(errorMsg);
       toast.error(errorMsg);
       setPassword("");

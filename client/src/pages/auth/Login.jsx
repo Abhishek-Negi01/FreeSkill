@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { AuthContext } from "../../context/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import { FaEnvelope, FaLock, FaSignInAlt } from "react-icons/fa";
 
@@ -12,6 +12,8 @@ const Login = () => {
 
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+  const registrationMessage = location.state?.message;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ const Login = () => {
       toast.success("Login successful!");
       navigate("/dashboard");
     } catch (error) {
-      const errorMsg = error.response?.data?.message || "Login failed";
+      const errorMsg = "Login failed";
       setError(errorMsg);
       toast.error(errorMsg);
       setPassword("");
@@ -69,6 +71,19 @@ const Login = () => {
             }}
           >
             <p className="text-sm font-medium">{error}</p>
+          </div>
+        )}
+
+        {registrationMessage && (
+          <div
+            className="p-3 rounded-lg mb-4 text-sm font-medium"
+            style={{
+              background: "#fef3c7",
+              border: "1px solid #fcd34d",
+              color: "#92400e",
+            }}
+          >
+            {registrationMessage}
           </div>
         )}
 

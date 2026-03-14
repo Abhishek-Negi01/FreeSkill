@@ -33,25 +33,79 @@ const VerifyEmail = () => {
   }, [token]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+      }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl p-8 md:p-10 w-full max-w-md text-center animate-scaleIn"
+        style={{ border: "1px solid rgba(255, 255, 255, 0.2)" }}
+      >
         {status === "verifying" && (
           <>
-            <FaSpinner className="text-blue-600 text-5xl mx-auto mb-4 animate-spin" />
-            <h2 className="text-2xl font-bold mb-4">Verifying Email...</h2>
-            <p className="text-gray-600">Please wait</p>
+            <div
+              className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
+              }}
+            >
+              <FaSpinner
+                className="w-10 h-10 animate-spin"
+                style={{ color: "#3b82f6" }}
+              />
+            </div>
+            <h2
+              className="text-2xl md:text-3xl font-bold mb-4"
+              style={{ color: "#1f2937" }}
+            >
+              Verifying Email...
+            </h2>
+            <p className="text-sm md:text-base" style={{ color: "#6b7280" }}>
+              Please wait while we verify your email address
+            </p>
           </>
         )}
 
         {status === "success" && (
           <>
-            <FaCheckCircle className="text-green-600 text-5xl mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-4 text-green-600">
+            <div
+              className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center animate-bounce"
+              style={{
+                background: "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)",
+              }}
+            >
+              <FaCheckCircle
+                className="w-10 h-10"
+                style={{ color: "#10b981" }}
+              />
+            </div>
+            <h2
+              className="text-2xl md:text-3xl font-bold mb-4"
+              style={{ color: "#10b981" }}
+            >
               {message}
             </h2>
+            <p
+              className="text-sm md:text-base mb-6"
+              style={{ color: "#6b7280" }}
+            >
+              You can now login to your account and start learning
+            </p>
             <Link
               to="/login"
-              className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl w-full"
+              style={{
+                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                color: "white",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
             >
               Go to Login
             </Link>
@@ -60,12 +114,43 @@ const VerifyEmail = () => {
 
         {status === "error" && (
           <>
-            <FaTimesCircle className="text-red-600 text-5xl mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-4 text-red-600">
+            <div
+              className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)",
+              }}
+            >
+              <FaTimesCircle
+                className="w-10 h-10"
+                style={{ color: "#ef4444" }}
+              />
+            </div>
+            <h2
+              className="text-2xl md:text-3xl font-bold mb-4"
+              style={{ color: "#ef4444" }}
+            >
               Verification Failed
             </h2>
-            <p className="text-gray-600 mb-4">{message}</p>
-            <Link to="/login" className="text-blue-600 hover:underline">
+            <p
+              className="text-sm md:text-base mb-6"
+              style={{ color: "#6b7280" }}
+            >
+              {message}
+            </p>
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl w-full"
+              style={{
+                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                color: "white",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
               Back to Login
             </Link>
           </>

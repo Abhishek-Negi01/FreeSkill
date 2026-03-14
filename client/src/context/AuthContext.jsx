@@ -15,8 +15,10 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await api.get("/users/me");
       setUser(data.data.user);
+      // console.log(" User authenticated:", data.data.user);
     } catch (error) {
       setUser(null);
+      // console.log(" Auth check failed:", error.response?.status);
     } finally {
       setLoading(false);
     }
@@ -28,6 +30,7 @@ export const AuthProvider = ({ children }) => {
       setUser(data.data.user);
     } catch (error) {
       setUser(null);
+      throw error;
     }
   };
 

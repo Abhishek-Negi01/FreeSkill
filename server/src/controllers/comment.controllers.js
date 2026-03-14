@@ -4,6 +4,7 @@ import { Question } from "../models/question.models.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { createNotification } from "../utils/createNotification.js";
 
 const createComment = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
@@ -17,17 +18,24 @@ const createComment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Text, parentType, and parentId are required");
   }
 
+  let parentOwnerId;
+  let questionId;
+
   // verify parent exist
   if (parentType === "Question") {
     const question = await Question.findById(parentId);
     if (!question) {
       throw new ApiError(404, "Question not found");
     }
+    parentOwnerId = question.askedBy;
+    questionId = parentId;
   } else if (parentType === "Answer") {
-    const answer = await Answer.findById(parentId);
+    const answer = await Answer.findById(parentId).populate("question");
     if (!answer) {
       throw new ApiError(404, "Answer not found");
     }
+    parentOwnerId = answer.answeredBy;
+    questionId = answer.question._id;
   }
 
   const comment = await Comment.create({
@@ -41,6 +49,17 @@ const createComment = asyncHandler(async (req, res) => {
     "commentedBy",
     "username fullname",
   );
+
+  // create notification for parent owner
+  if (parentOwnerId.toString() !== userId.toString()) {
+    await createNotification({
+      user: parentOwnerId,
+      type: "comment",
+      message: `${req.user.username} commented on your ${parentType.toLowerCase()}`,
+      link: `/questions/${questionId}`,
+      relatedUser: userId,
+    });
+  }
 
   return res
     .status(201)

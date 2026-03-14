@@ -6,6 +6,8 @@ import {
   getVideo,
   deleteVideo,
   markVideoAsCompleted,
+  reorderVideos,
+  getPublicVideos,
 } from "../controllers/video.controllers.js";
 
 const router = Router();
@@ -17,5 +19,7 @@ router.route("/:videoId").delete(authenticateUser, deleteVideo); // delete video
 router
   .route("/:videoId/complete")
   .patch(authenticateUser, markVideoAsCompleted); // mark video as completed
+router.route("/:courseId/reorder").put(authenticateUser, reorderVideos);
+router.route("/public/:courseId").get(getPublicVideos); // no auth
 
 export default router;

@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Answer } from "../models/answer.models.js";
 import { Question } from "../models/question.models.js";
+import { createNotification } from "../utils/createNotification.js";
 
 const createAnswer = asyncHandler(async (req, res) => {
   const userId = req?.user?._id;
@@ -32,6 +33,17 @@ const createAnswer = asyncHandler(async (req, res) => {
   const populatedAnswer = await Answer.findById(answer._id)
     .populate("answeredBy", "username fullname")
     .populate("question", "title");
+
+  // create notification for question owner
+  if (question.askedBy.toString() !== userId.toString()) {
+    await createNotification({
+      user: question.askedBy,
+      type: "answer",
+      message: `${req.user.username} answered your question`,
+      link: `/questions/${questionId}`,
+      relatedUser: userId,
+    });
+  }
 
   return res.status(201).json(
     new ApiResponse(
@@ -170,9 +182,31 @@ const acceptAnswer = asyncHandler(async (req, res) => {
   question.acceptedAnswer = answerId;
   await question.save();
 
+  const updatedQuestion = await Question.findById(question._id).populate(
+    "askedBy",
+    "username fullname",
+  );
+
+  // notify answer owner
+  if (answer.answeredBy.toString() !== userId.toString()) {
+    await createNotification({
+      user: answer.answeredBy,
+      type: "accepted",
+      message: `${req.user.username} accepted your answer`,
+      link: `/questions/${question._id}`,
+      relatedUser: userId,
+    });
+  }
+
   return res
     .status(200)
-    .json(new ApiResponse(200, { answer }, "Answer accepted successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        { question: updatedQuestion },
+        "Answer accepted successfully",
+      ),
+    );
 });
 
 const upvoteAnswer = asyncHandler(async (req, res) => {

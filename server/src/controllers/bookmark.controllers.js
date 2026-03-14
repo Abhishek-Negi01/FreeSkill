@@ -3,6 +3,7 @@ import { User } from "../models/user.models.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { Answer } from "../models/answer.models.js";
 
 /*
 const bookmarkQuestion = asyncHandler(async (req, res) => {
@@ -111,18 +112,37 @@ const getBookmarkedQuestions = asyncHandler(async (req, res) => {
 
   const user = await User.findById(userId).populate({
     path: "bookmarkedQuestions",
-    populate: {
-      path: "askedBy",
-      select: "username fullname",
-    },
+    populate: [
+      {
+        path: "askedBy",
+        select: "username fullname",
+      },
+      {
+        path: "acceptedAnswer",
+      },
+    ],
   });
+
+  // Get answer counts for each question
+
+  const bookmarkedQuestionsWithCounts = await Promise.all(
+    user.bookmarkedQuestions.map(async (question) => {
+      const answerCount = await Answer.countDocuments({
+        question: question._id,
+      });
+      return {
+        ...question.toObject(),
+        answers: { length: answerCount },
+      };
+    }),
+  );
 
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        { bookmarks: user.bookmarkedQuestions },
+        { bookmarkedQuestions: bookmarkedQuestionsWithCounts },
         "Bookmarked questions fetched successfully",
       ),
     );

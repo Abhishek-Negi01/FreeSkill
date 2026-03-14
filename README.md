@@ -34,7 +34,6 @@ FreeSkill solves the problem of unstructured self-paced learning. Users can orga
 | MongoDB + Mongoose | Database and ODM |
 | JWT (jsonwebtoken) | Access and refresh token auth |
 | bcryptjs | Password hashing |
-| Nodemailer | Email verification and password reset |
 | YouTube Data API v3 | Video search and metadata |
 
 ### Frontend
@@ -53,13 +52,11 @@ FreeSkill solves the problem of unstructured self-paced learning. Users can orga
 
 ### Authentication & Security
 - JWT-based auth with short-lived access tokens (15m) and long-lived refresh tokens (3d)
-- **Email verification required before login** — unverified users cannot access the platform
-- Verification email sent automatically on registration with a 24-hour expiry token
-- Idempotent email verification — handles React StrictMode double-invocation gracefully
-- Password reset via email with 1-hour expiry token
+- Register and login directly — no email verification required currently
 - Change password for authenticated users
 - Secure HTTP-only cookies for token storage
 - Protected routes on both frontend and backend
+- **Password reset temporarily unavailable** — Clerk integration planned
 
 ### Course Management
 - Create, read, update, and delete courses
@@ -144,18 +141,14 @@ FreeSkill/
 
 ### Authentication
 ```
-POST   /api/users/register              Register and send verification email
-POST   /api/users/login                 Login (requires verified email)
+POST   /api/users/register              Register user
+POST   /api/users/login                 Login
 POST   /api/users/logout                Logout and clear cookies
 POST   /api/users/refresh-token         Refresh access token
 GET    /api/users/me                    Get current user
 PUT    /api/users/updateUser            Update profile
 DELETE /api/users/deleteUser            Delete account
 PUT    /api/users/change-password       Change password
-POST   /api/users/forgot-password       Send password reset email
-POST   /api/users/reset-password        Reset password with token
-GET    /api/users/verify-email          Verify email with token
-POST   /api/users/send-verification     Resend verification email
 ```
 
 ### Courses
@@ -231,8 +224,6 @@ DELETE /api/notifications/:id           Delete a notification
 ```
 User
   ├── username, fullname, email, password (hashed)
-  ├── isEmailVerified, emailVerificationToken, emailVerificationExpiry
-  ├── resetPasswordToken, resetPasswordExpiry
   ├── refreshToken
   └── bookmarkedQuestions[]
 
@@ -277,7 +268,6 @@ YoutubeCache
 - Node.js v14+
 - MongoDB (local or Atlas)
 - YouTube Data API v3 key
-- Gmail account with App Password for email
 
 ### Backend
 ```bash
@@ -312,8 +302,6 @@ ACCESS_TOKEN_EXPIRY=15m
 REFRESH_TOKEN_SECRET=your_secret
 REFRESH_TOKEN_EXPIRY=3d
 YOUTUBE_API_KEY=your_youtube_api_key
-EMAIL_USER=your_gmail@gmail.com
-EMAIL_PASS=your_gmail_app_password
 FRONTEND_URL=http://localhost:5173
 ```
 
@@ -330,6 +318,7 @@ VITE_API_BASE_URL=http://localhost:8000/api
 - Comment system backend is fully implemented (controller + model) but routes and frontend UI are not connected yet
 - Video completion is one-way only — cannot mark a video as incomplete once completed
 - Course statistics not displayed on the Dashboard (API exists, UI not connected)
+- Password reset temporarily unavailable — email service removed, Clerk migration planned
 
 ---
 
@@ -362,6 +351,9 @@ VITE_API_BASE_URL=http://localhost:8000/api
 - **AI Course Recommendations** — Suggest courses based on learning history
 - **AI Video Summaries** — Generate summaries and key concepts from videos
 - **AI Roadmap Generator** — Create learning paths from a user's goal
+
+### Auth
+- **Clerk Integration** — Replace current JWT auth with Clerk for email verification, password reset, OAuth (Google/GitHub), and session management out of the box
 
 ### Performance & Infrastructure
 - **Redis Caching** — Improve API performance and reduce YouTube API quota usage

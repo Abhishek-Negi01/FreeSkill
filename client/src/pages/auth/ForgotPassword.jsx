@@ -1,8 +1,8 @@
-// import React, { useState } from "react";
-// import { Link } from "react-router-dom";
-// import axios from "axios";
-// import toast from "react-hot-toast";
-// import { FaEnvelope, FaArrowLeft } from "react-icons/fa";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import toast from "react-hot-toast";
+import { FaEnvelope, FaArrowLeft } from "react-icons/fa";
 
 // const ForgotPassword = () => {
 //   const [email, setEmail] = useState("");
@@ -145,8 +145,6 @@
 //   );
 // };
 
-// export default ForgotPassword;
-
 const ForgotPassword = () => {
   return (
     <div
@@ -184,3 +182,5 @@ const ForgotPassword = () => {
     </div>
   );
 };
+
+export default ForgotPassword;

@@ -23,14 +23,9 @@ const Register = () => {
 
     try {
       await register({ fullname, username, email, password });
-      toast.success(
-        "Registration successful! Please check your email to verify your account.",
-      );
+      toast.success("Registration successful! You can now login.");
       navigate("/login", {
-        state: {
-          message:
-            "Check your email and Please verify your email before logging in.",
-        },
+        state: { message: "Registration successful! You can now login." },
       });
     } catch (error) {
       const errorMsg = "Please Retry Registration failed";

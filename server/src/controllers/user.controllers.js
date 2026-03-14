@@ -98,28 +98,13 @@ const registerUser = asyncHandler(async (req, res) => {
     );
   }
 
-  // hash password manually — no pre-save hook since we're not saving yet
-  const salt = await bcryptjs.genSalt(10);
-  const hashedPassword = await bcryptjs.hash(password, salt);
+  const user = await User.create({ username, fullname, email, password });
 
-  // embed user data in JWT — no DB write until email is verified
-  const token = jwt.sign(
-    { username, fullname, email, password: hashedPassword },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: "24h" },
-  );
-
-  try {
-    await sendVerificationEmail(email, token);
-  } catch (emailErr) {
-    console.error("Email send failed:", emailErr.message);
-  }
-
-  return res.status(201).json({
-    success: true,
-    message:
-      "Registration successful. Please check your email to verify your account.",
-  });
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(201, {}, "Registration successful. You can now login."),
+    );
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -133,10 +118,6 @@ const loginUser = asyncHandler(async (req, res) => {
 
   if (!user) {
     throw new ApiError(404, "User not found.");
-  }
-
-  if (!user.isEmailVerified) {
-    throw new ApiError(401, "Please verify your email before logging in.");
   }
 
   const isPasswordValid = await bcryptjs.compare(password, user.password);

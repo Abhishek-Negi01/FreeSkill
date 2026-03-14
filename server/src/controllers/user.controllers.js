@@ -37,8 +37,9 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     const cookieOptions = {
       httpOnly: true,
-      secure: false, // true ONLY in production (https)
-      sameSite: "lax", // use "none" if production
+      secure: true,
+      sameSite: "None",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     };
     return res
       .status(200)
@@ -155,6 +156,7 @@ const loginUser = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true,
     sameSite: "None",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 
   return res
@@ -189,6 +191,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: true,
     sameSite: "None",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 
   return res
@@ -246,8 +249,8 @@ const deleteUser = asyncHandler(async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "None",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     };
-
     return res
       .status(200)
       .clearCookie("accessToken", cookieOptions)

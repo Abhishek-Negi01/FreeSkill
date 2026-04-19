@@ -8,7 +8,7 @@ connectDB()
       console.log("server is running at PORT : ", PORT);
     });
   })
-  .catch((err) => {
-    console.log("MongoDB connection error ", err);
+  .catch((error) => {
+    console.log("MongoDB connection error ", error);
     process.exit(1);
   });

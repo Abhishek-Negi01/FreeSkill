@@ -228,7 +228,7 @@ const smartSearch = asyncHandler(async (req, res) => {
 
 const importVideoByUrl = asyncHandler(async (req, res) => {
   const { courseId, videoUrl } = req.body;
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -306,7 +306,7 @@ const importVideoByUrl = asyncHandler(async (req, res) => {
 
 const importPlaylist = asyncHandler(async (req, res) => {
   const { courseId, playlistUrl } = req.body;
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");

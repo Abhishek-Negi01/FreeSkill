@@ -4,14 +4,19 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Answer } from "../models/answer.models.js";
+import { clerkClient } from "@clerk/express";
 
 const createQuestion = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id; // from auth middleware
+  const userId = req.auth?.userId;
+
   const { videoId, title, body } = req.body;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }
+
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const username = clerkUser.username || clerkUser.firstName || "Anonymous";
 
   if ([title, body].some((field) => !field || field?.trim() === "")) {
     throw new ApiError(400, "title and body are required.");
@@ -28,13 +33,15 @@ const createQuestion = asyncHandler(async (req, res) => {
   const question = await Question.create({
     video: videoId,
     askedBy: userId,
+    askedByUsername: username,
     title,
     body,
   });
 
-  const populatedQuestion = await Question.findById(question._id)
-    .populate("askedBy", "username fullname")
-    .populate("video", "title");
+  const populatedQuestion = await Question.findById(question._id).populate(
+    "video",
+    "title",
+  );
 
   return res
     .status(201)
@@ -55,7 +62,6 @@ const getQuestionsByVideo = asyncHandler(async (req, res) => {
   }
 
   const questions = await Question.find({ video: videoId })
-    .populate("askedBy", "username fullname")
     .populate("acceptedAnswer")
     .sort({ createdAt: -1 });
 
@@ -92,7 +98,6 @@ const getQuestionById = asyncHandler(async (req, res) => {
   }
 
   const question = await Question.findById(questionId)
-    .populate("askedBy", "username fullname")
     .populate("video", "title thumbnail channelTitle course")
     .populate("acceptedAnswer");
 
@@ -106,7 +111,7 @@ const getQuestionById = asyncHandler(async (req, res) => {
 });
 
 const updateQuestion = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
+  const userId = req.auth?.userId;
   const { questionId } = req.params;
   const { title, body } = req.body;
 
@@ -138,9 +143,7 @@ const updateQuestion = asyncHandler(async (req, res) => {
       $set: { title, body },
     },
     { new: true },
-  )
-    .populate("askedBy", "username fullname")
-    .populate("video", "title");
+  ).populate("video", "title");
 
   return res.status(200).json(
     new ApiResponse(
@@ -154,7 +157,7 @@ const updateQuestion = asyncHandler(async (req, res) => {
 });
 
 const deleteQuestion = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -191,7 +194,7 @@ const deleteQuestion = asyncHandler(async (req, res) => {
 });
 
 const upvoteQuestion = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -236,7 +239,7 @@ const upvoteQuestion = asyncHandler(async (req, res) => {
 });
 
 const downvoteQuestion = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -289,7 +292,6 @@ const downvoteQuestion = asyncHandler(async (req, res) => {
 
 const getAllQuestions = asyncHandler(async (req, res) => {
   const questions = await Question.find()
-    .populate("askedBy", "username fullname")
     .populate("video", "title")
     .populate("acceptedAnswer")
     .sort({ createdAt: -1 });

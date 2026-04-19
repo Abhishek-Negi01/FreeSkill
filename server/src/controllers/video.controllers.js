@@ -6,7 +6,7 @@ import { Course } from "../models/course.models.js";
 import mongoose from "mongoose";
 
 const addVideo = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -53,7 +53,7 @@ const addVideo = asyncHandler(async (req, res) => {
 });
 
 const getAllVideos = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -84,7 +84,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 });
 
 const getVideo = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -111,7 +111,7 @@ const getVideo = asyncHandler(async (req, res) => {
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -129,7 +129,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found");
   }
 
-  if (video.course?.creator?._id.toString() !== userId.toString()) {
+  if (video.course?.creator !== userId.toString()) {
     throw new ApiError(403, "Unable to delete video.");
   }
 
@@ -147,7 +147,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
 });
 
 const markVideoAsCompleted = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -165,7 +165,7 @@ const markVideoAsCompleted = asyncHandler(async (req, res) => {
 
   const video = await Video.findById(videoId).populate("course");
 
-  if (!video || video.course?.creator?._id.toString() !== userId.toString()) {
+  if (!video || video.course?.creator !== userId.toString()) {
     throw new ApiError(404, "Video not found or unauthorized");
   }
 
@@ -210,7 +210,7 @@ const getPublicVideos = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Public course not found");
   }
 
-  const videos = await Video.find({ course: courseId }).sort({ order: -1 });
+  const videos = await Video.find({ course: courseId }).sort({ order: 1 });
 
   return res
     .status(200)

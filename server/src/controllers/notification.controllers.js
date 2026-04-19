@@ -4,14 +4,14 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
 const getNotifications = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }
 
   const notifications = await Notification.find({ user: userId })
-    .populate("relatedUser", "username fullname")
+
     .sort({ createdAt: -1 })
     .limit(50);
 
@@ -33,7 +33,7 @@ const getNotifications = asyncHandler(async (req, res) => {
 });
 
 const markAsRead = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }
@@ -60,7 +60,7 @@ const markAsRead = asyncHandler(async (req, res) => {
 });
 
 const markAllAsRead = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -83,7 +83,7 @@ const markAllAsRead = asyncHandler(async (req, res) => {
 });
 
 const deleteNotification = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }

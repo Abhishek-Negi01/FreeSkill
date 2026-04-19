@@ -12,20 +12,18 @@ const AnswerSchema = new mongoose.Schema(
       required: true,
     },
     answeredBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
     },
+    answeredByUsername: { type: String },
     upvotes: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        type: String,
       },
     ],
     downvotes: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        type: String,
       },
     ],
   },

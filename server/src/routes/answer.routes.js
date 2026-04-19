@@ -1,4 +1,4 @@
-import Router from "express";
+import { Router } from "express";
 import { authenticateUser } from "../middlewares/auth.middlewares.js";
 import {
   createAnswer,

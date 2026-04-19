@@ -11,9 +11,11 @@ const CourseSchema = new mongoose.Schema(
     },
 
     creator: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
+    },
+    creatorUsername: {
+      type: String,
     },
     isPublic: {
       type: Boolean,

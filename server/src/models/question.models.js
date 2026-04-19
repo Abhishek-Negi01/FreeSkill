@@ -15,26 +15,25 @@ const QuestionSchema = new mongoose.Schema(
       ref: "Video",
     },
     askedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
     },
     upvotes: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        type: String,
       },
     ],
     downvotes: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        type: String,
       },
     ],
     views: {
       type: Number,
       default: 0,
     },
+    askedByUsername: { type: String },
+
     acceptedAnswer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Answer",

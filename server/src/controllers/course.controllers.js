@@ -1,17 +1,20 @@
-import { User } from "../models/user.models.js";
 import { Video } from "../models/video.models.js";
 import { Course } from "../models/course.models.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
+import { clerkClient } from "@clerk/express";
 
 const createCourse = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized.");
   }
+
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const username = clerkUser.username || clerkUser.firstName || "Anonymous";
 
   const { title, description } = req.body;
 
@@ -23,6 +26,7 @@ const createCourse = asyncHandler(async (req, res) => {
     title,
     description,
     creator: userId,
+    creatorUsername: username,
   });
 
   if (!course) {
@@ -36,7 +40,7 @@ const createCourse = asyncHandler(async (req, res) => {
 
 // do it later
 const getCourse = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized.");
   }
@@ -57,7 +61,7 @@ const getCourse = asyncHandler(async (req, res) => {
 });
 
 const getAllCourse = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized.");
@@ -71,54 +75,50 @@ const getAllCourse = asyncHandler(async (req, res) => {
 });
 
 const updateCourse = asyncHandler(async (req, res) => {
-  try {
-    const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
-    if (!userId) {
-      throw new ApiError(401, "Unauthorized.");
-    }
-
-    const courseId = req.params.courseId;
-
-    if (!courseId) {
-      throw new ApiError(400, "Course ID is required.");
-    }
-
-    const { title, description } = req.body;
-
-    if (!title && !description) {
-      throw new ApiError(
-        400,
-        "At least one field (title or description) is required to update.",
-      );
-    }
-
-    const updatedCourse = await Course.findOneAndUpdate(
-      { _id: courseId, creator: userId },
-      { $set: { title, description } },
-      { new: true },
-    );
-
-    if (!updatedCourse) {
-      throw new ApiError(404, "Course not found or unauthorized.");
-    }
-
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          { course: updatedCourse },
-          "Course updated successfully.",
-        ),
-      );
-  } catch (error) {
-    throw new ApiError(500, "Something went wrong while updating course.");
+  if (!userId) {
+    throw new ApiError(401, "Unauthorized.");
   }
+
+  const courseId = req.params.courseId;
+
+  if (!courseId) {
+    throw new ApiError(400, "Course ID is required.");
+  }
+
+  const { title, description } = req.body;
+
+  if (!title && !description) {
+    throw new ApiError(
+      400,
+      "At least one field (title or description) is required to update.",
+    );
+  }
+
+  const updatedCourse = await Course.findOneAndUpdate(
+    { _id: courseId, creator: userId },
+    { $set: { title, description } },
+    { new: true },
+  );
+
+  if (!updatedCourse) {
+    throw new ApiError(404, "Course not found or unauthorized.");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { course: updatedCourse },
+        "Course updated successfully.",
+      ),
+    );
 });
 
 const deleteCourse = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized.");
   }
@@ -149,7 +149,7 @@ const deleteCourse = asyncHandler(async (req, res) => {
 });
 
 const getCourseProgress = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized.");
@@ -192,7 +192,12 @@ const getCourseProgress = asyncHandler(async (req, res) => {
 });
 
 const duplicateCourse = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
+  if (!userId) {
+    throw new ApiError(401, "Unauthorized");
+  }
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const username = clerkUser.username || clerkUser.firstName || "Anonymous";
   const { courseId } = req.params;
 
   const originalCourse = await Course.findById(courseId);
@@ -209,6 +214,7 @@ const duplicateCourse = asyncHandler(async (req, res) => {
     title: `${originalCourse.title} (Copy)`,
     description: originalCourse.description,
     creator: userId,
+    creatorUsername: username,
   });
 
   const originalVideos = await Video.find({ course: courseId });
@@ -299,7 +305,7 @@ function formatDuration(seconds) {
 }
 
 const togglePublic = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }
@@ -331,7 +337,7 @@ const getPublicCourse = asyncHandler(async (req, res) => {
   const course = await Course.findOne({
     _id: courseId,
     isPublic: true,
-  }).populate("creator", "username fullname");
+  });
 
   if (!course) {
     throw new ApiError(404, "Public course not found");
@@ -361,7 +367,6 @@ const getAllPublicCourses = asyncHandler(async (req, res) => {
   }
 
   const courses = await Course.find(query)
-    .populate("creator", "username fullname")
     .sort({ createdAt: -1 })
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -383,11 +388,14 @@ const getAllPublicCourses = asyncHandler(async (req, res) => {
 });
 
 const clonePublicCourse = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }
+
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const username = clerkUser.username || clerkUser.firstName || "Anonymous";
 
   const { courseId } = req.params;
   const originalCourse = await Course.findOne({
@@ -404,6 +412,7 @@ const clonePublicCourse = asyncHandler(async (req, res) => {
     title: `${originalCourse.title} (Cloned)`,
     description: originalCourse.description,
     creator: userId,
+    creatorUsername: username,
     isPublic: false,
   });
 

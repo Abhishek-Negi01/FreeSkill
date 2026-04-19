@@ -2,9 +2,11 @@ import express from "express";
 import cors from "cors";
 import { CORS_ORIGIN } from "./utils/dotenv.js";
 import cookieParser from "cookie-parser";
+import { clerkMiddleware } from "@clerk/express";
 
 const app = express();
 
+app.use(clerkMiddleware());
 app.use(
   cors({
     origin: CORS_ORIGIN,

@@ -4,13 +4,18 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { Answer } from "../models/answer.models.js";
 import { Question } from "../models/question.models.js";
 import { createNotification } from "../utils/createNotification.js";
+import { clerkClient } from "@clerk/express";
 
 const createAnswer = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }
+
+  const clerkUser = await clerkClient.users.getUser(userId);
+
+  const username = clerkUser.username || clerkUser.firstName || "Anonymous";
 
   const { questionId, body } = req.body;
 
@@ -27,19 +32,21 @@ const createAnswer = asyncHandler(async (req, res) => {
   const answer = await Answer.create({
     question: questionId,
     answeredBy: userId,
+    answeredByUsername: username,
     body,
   });
 
-  const populatedAnswer = await Answer.findById(answer._id)
-    .populate("answeredBy", "username fullname")
-    .populate("question", "title");
+  const populatedAnswer = await Answer.findById(answer._id).populate(
+    "question",
+    "title",
+  );
 
   // create notification for question owner
   if (question.askedBy.toString() !== userId.toString()) {
     await createNotification({
       user: question.askedBy,
       type: "answer",
-      message: `${req.user.username} answered your question`,
+      message: `Someone answered your question`,
       link: `/questions/${questionId}`,
       relatedUser: userId,
     });
@@ -64,7 +71,7 @@ const getAnswersByQuestion = asyncHandler(async (req, res) => {
   }
 
   const answers = await Answer.find({ question: questionId })
-    .populate("answeredBy", "username fullname")
+
     .sort({ createdAt: -1 });
 
   return res
@@ -73,7 +80,7 @@ const getAnswersByQuestion = asyncHandler(async (req, res) => {
 });
 
 const updateAnswer = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -106,7 +113,7 @@ const updateAnswer = asyncHandler(async (req, res) => {
     answerId,
     { $set: { body } },
     { new: true },
-  ).populate("answeredBy", "username fullname");
+  );
 
   return res
     .status(200)
@@ -120,7 +127,7 @@ const updateAnswer = asyncHandler(async (req, res) => {
 });
 
 const deleteAnswer = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -154,7 +161,7 @@ const deleteAnswer = asyncHandler(async (req, res) => {
 });
 
 const acceptAnswer = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -182,17 +189,14 @@ const acceptAnswer = asyncHandler(async (req, res) => {
   question.acceptedAnswer = answerId;
   await question.save();
 
-  const updatedQuestion = await Question.findById(question._id).populate(
-    "askedBy",
-    "username fullname",
-  );
+  const updatedQuestion = await Question.findById(question._id);
 
   // notify answer owner
   if (answer.answeredBy.toString() !== userId.toString()) {
     await createNotification({
       user: answer.answeredBy,
       type: "accepted",
-      message: `${req.user.username} accepted your answer`,
+      message: `Your answer was accepted`,
       link: `/questions/${question._id}`,
       relatedUser: userId,
     });
@@ -210,7 +214,7 @@ const acceptAnswer = asyncHandler(async (req, res) => {
 });
 
 const upvoteAnswer = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }
@@ -253,7 +257,7 @@ const upvoteAnswer = asyncHandler(async (req, res) => {
 });
 
 const downvoteAnswer = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }

@@ -3,8 +3,7 @@ import mongoose from "mongoose";
 const NotificationSchema = new mongoose.Schema(
   {
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
     },
     type: {
@@ -21,8 +20,7 @@ const NotificationSchema = new mongoose.Schema(
       required: true,
     },
     relatedUser: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
     },
     isRead: {
       type: Boolean,

@@ -5,12 +5,16 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { createNotification } from "../utils/createNotification.js";
+import { clerkClient } from "@clerk/express";
 
 const createComment = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }
+
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const username = clerkUser.username || clerkUser.firstName || "Anonymous";
 
   const { text, parentType, parentId } = req.body;
 
@@ -41,21 +45,19 @@ const createComment = asyncHandler(async (req, res) => {
   const comment = await Comment.create({
     text,
     commentedBy: userId,
+    commentedByUsername: username,
     parentType,
     parentId,
   });
 
-  const populatedComment = await Comment.findById(comment._id).populate(
-    "commentedBy",
-    "username fullname",
-  );
+  const populatedComment = await Comment.findById(comment._id);
 
   // create notification for parent owner
   if (parentOwnerId.toString() !== userId.toString()) {
     await createNotification({
       user: parentOwnerId,
       type: "comment",
-      message: `${req.user.username} commented on your ${parentType.toLowerCase()}`,
+      message: `Someone commented on your ${parentType.toLowerCase()}`,
       link: `/questions/${questionId}`,
       relatedUser: userId,
     });
@@ -79,9 +81,9 @@ const getCommentsByParent = asyncHandler(async (req, res) => {
     throw new ApiError(400, "ParentType and parentId are required");
   }
 
-  const comments = await Comment.find({ parentType, parentId })
-    .populate("commentedBy", "username fullname")
-    .sort({ createdAt: -1 });
+  const comments = await Comment.find({ parentType, parentId }).sort({
+    createdAt: -1,
+  });
 
   return res
     .status(200)
@@ -89,7 +91,7 @@ const getCommentsByParent = asyncHandler(async (req, res) => {
 });
 
 const updateComment = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
 
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
@@ -116,7 +118,7 @@ const updateComment = asyncHandler(async (req, res) => {
     commentId,
     { text },
     { new: true },
-  ).populate("commentedBy", "username fullname");
+  );
 
   return res
     .status(200)
@@ -130,7 +132,7 @@ const updateComment = asyncHandler(async (req, res) => {
 });
 
 const deleteComment = asyncHandler(async (req, res) => {
-  const userId = req.user?._id;
+  const userId = req.auth?.userId;
   if (!userId) {
     throw new ApiError(401, "Unauthorized");
   }

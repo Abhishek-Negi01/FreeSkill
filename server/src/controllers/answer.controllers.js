@@ -186,13 +186,20 @@ const acceptAnswer = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only question owner can accept an answer");
   }
 
-  question.acceptedAnswer = answerId;
+  if (question.acceptedAnswer?.toString() == answerId) {
+    question.acceptedAnswer = null;
+  } else {
+    question.acceptedAnswer = answerId;
+  }
   await question.save();
 
   const updatedQuestion = await Question.findById(question._id);
 
   // notify answer owner
-  if (answer.answeredBy.toString() !== userId.toString()) {
+  if (
+    question.acceptedAnswer &&
+    answer.answeredBy.toString() !== userId.toString()
+  ) {
     await createNotification({
       user: answer.answeredBy,
       type: "accepted",
@@ -202,13 +209,14 @@ const acceptAnswer = asyncHandler(async (req, res) => {
     });
   }
 
+  const action = question.acceptedAnswer ? "accepted" : "unaccepted";
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
         { question: updatedQuestion },
-        "Answer accepted successfully",
+        `Answer ${action} successfully`,
       ),
     );
 });

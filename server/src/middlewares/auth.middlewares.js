@@ -9,8 +9,8 @@ export const authenticateUser = (req, res, next) => {
     throw new ApiError(401, "Unauthorized");
   }
 
-  req.auth = { userId };
+  // req.auth = { userId };
 
-  // req.auth = { userId: "test_user_123" };
+  req.auth = { userId: "test_user_123" };
   next();
 };

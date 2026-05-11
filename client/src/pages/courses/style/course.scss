@@ -1,0 +1,528 @@
+// ===== DARK THEME COLOR VARIABLES (Easy to understand names) =====
+:root {
+  // Main Brand Colors (keeping vibrant for contrast)
+  --brand-primary: #60a5fa;
+  --brand-primary-dark: #3b82f6;
+  --brand-secondary: #a78bfa;
+
+  // Status Colors (adjusted for dark theme)
+  --color-success: #34d399;
+  --color-success-dark: #10b981;
+  --color-warning: #fbbf24;
+  --color-warning-dark: #f59e0b;
+  --color-danger: #f87171;
+  --color-danger-dark: #ef4444;
+  --color-info: #22d3ee;
+  --color-info-dark: #06b6d4;
+
+  // Dark Theme Neutral Colors
+  --color-gray-light: #9ca3af;
+  --color-gray-dark: #6b7280;
+  --color-gray-darker: #4b5563;
+  --color-gray-darkest: #374151;
+
+  // Dark Background Colors
+  --bg-main: #0f0f0f; // Very dark main background
+  --bg-main-gradient: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+  --bg-card: #1e1e1e; // Dark card background
+  --bg-card-hover: #2a2a2a; // Lighter on hover
+  --bg-input: #262626; // Input field background
+  --bg-input-disabled: #1a1a1a; // Disabled input background
+  --bg-sidebar: #171717; // Sidebar background
+
+  // Dark Theme Text Colors
+  --text-primary: #f8fafc; // Light text for headings
+  --text-secondary: #e2e8f0; // Secondary light text
+  --text-muted: #94a3b8; // Muted text
+  --text-light: #64748b; // Very muted text
+  --text-dark: #1e293b; // Dark text (for light backgrounds)
+
+  // Dark Theme Border Colors
+  --border-light: #2d2d2d; // Light borders
+  --border-medium: #404040; // Medium borders
+  --border-focus: var(--brand-primary); // Focus state borders
+
+  // Dark Theme Shadow Colors
+  --shadow-light: rgba(0, 0, 0, 0.3);
+  --shadow-medium: rgba(0, 0, 0, 0.4);
+  --shadow-heavy: rgba(0, 0, 0, 0.6);
+
+  // Dark Theme Badge Colors
+  --badge-public-bg: #064e3b;
+  --badge-public-text: #6ee7b7;
+  --badge-private-bg: #451a03;
+  --badge-private-text: #fcd34d;
+}
+
+// ===== BACKGROUND UTILITIES =====
+.bg-main {
+  background: var(--bg-main-gradient);
+}
+
+.bg-card {
+  background-color: var(--bg-card);
+}
+
+.bg-card-hover {
+  background-color: var(--bg-card-hover);
+}
+
+// ===== GRADIENT UTILITIES =====
+.gradient-primary {
+  background: linear-gradient(
+    135deg,
+    var(--brand-primary) 0%,
+    var(--brand-primary-dark) 100%
+  );
+}
+
+.gradient-success {
+  background: linear-gradient(
+    135deg,
+    var(--color-success) 0%,
+    var(--color-success-dark) 100%
+  );
+}
+
+.gradient-warning {
+  background: linear-gradient(
+    135deg,
+    var(--color-warning) 0%,
+    var(--color-warning-dark) 100%
+  );
+}
+
+.gradient-danger {
+  background: linear-gradient(
+    135deg,
+    var(--color-danger) 0%,
+    var(--color-danger-dark) 100%
+  );
+}
+
+.gradient-gray {
+  background: linear-gradient(
+    135deg,
+    var(--color-gray-light) 0%,
+    var(--color-gray-dark) 100%
+  );
+}
+
+.gradient-info {
+  background: linear-gradient(
+    135deg,
+    var(--color-info) 0%,
+    var(--color-info-dark) 100%
+  );
+}
+
+// ===== TEXT UTILITIES =====
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-light {
+  color: var(--text-light);
+}
+
+.text-gradient-primary {
+  background: linear-gradient(
+    135deg,
+    var(--brand-primary) 0%,
+    var(--brand-secondary) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// ===== BORDER UTILITIES =====
+.border-light {
+  border-color: var(--border-light);
+}
+
+.border-medium {
+  border-color: var(--border-medium);
+}
+
+.border-focus {
+  border-color: var(--border-focus);
+}
+
+// ===== DASHBOARD SPECIFIC STYLES =====
+.dashboard {
+  &__page {
+    background: var(--bg-main-gradient);
+    min-height: 100vh;
+  }
+
+  &__stat-card {
+    background-color: var(--bg-card);
+    border-color: var(--border-light);
+    box-shadow: 0 4px 6px -1px var(--shadow-medium);
+
+    &:hover {
+      background-color: var(--bg-card-hover);
+      box-shadow: 0 10px 25px -3px var(--shadow-heavy);
+    }
+
+    &__number {
+      color: var(--text-primary);
+    }
+
+    &__label {
+      color: var(--text-muted);
+    }
+  }
+
+  &__header {
+    &__title {
+      background: linear-gradient(
+        135deg,
+        var(--brand-primary) 0%,
+        var(--brand-secondary) 100%
+      );
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    &__subtitle {
+      color: var(--text-secondary);
+    }
+  }
+
+  &__search-input {
+    background-color: var(--bg-input);
+    border-color: var(--border-medium);
+    color: var(--text-primary);
+
+    &:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+    }
+
+    &::placeholder {
+      color: var(--text-light);
+    }
+  }
+
+  &__form {
+    background-color: var(--bg-card);
+    border-color: var(--border-light);
+    box-shadow: 0 10px 25px -5px var(--shadow-medium);
+
+    &__title {
+      color: var(--text-primary);
+    }
+
+    &__label {
+      color: var(--text-secondary);
+    }
+
+    &__input {
+      background-color: var(--bg-input);
+      border-color: var(--border-medium);
+      color: var(--text-primary);
+
+      &:focus {
+        border-color: var(--border-focus);
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+      }
+
+      &::placeholder {
+        color: var(--text-light);
+      }
+
+      &:disabled {
+        background-color: var(--bg-input-disabled);
+        color: var(--text-muted);
+      }
+    }
+  }
+
+  &__empty-state {
+    background-color: var(--bg-card);
+    border-color: var(--border-light);
+    box-shadow: 0 10px 25px -5px var(--shadow-medium);
+
+    &__icon-bg {
+      background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+    }
+
+    &__icon {
+      color: var(--brand-primary);
+    }
+
+    &__title {
+      color: var(--text-primary);
+    }
+
+    &__description {
+      color: var(--text-secondary);
+    }
+  }
+}
+
+// ===== COURSE CARD STYLES =====
+.course-card {
+  background-color: var(--bg-card);
+  border-color: var(--border-light);
+  box-shadow: 0 4px 6px -1px var(--shadow-medium);
+  position: relative;
+  overflow: hidden;
+
+  // Hover accent line
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(
+      90deg,
+      var(--brand-primary) 0%,
+      var(--brand-secondary) 100%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  &:hover {
+    background-color: var(--bg-card-hover);
+    box-shadow: 0 20px 25px -5px var(--shadow-heavy);
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  &__badge {
+    &--public {
+      background-color: var(--badge-public-bg);
+      color: var(--badge-public-text);
+    }
+
+    &--private {
+      background-color: var(--badge-private-bg);
+      color: var(--badge-private-text);
+    }
+  }
+
+  &__title {
+    color: var(--text-primary);
+  }
+
+  &__description {
+    color: var(--text-secondary);
+  }
+
+  &__divider {
+    border-color: var(--border-light);
+  }
+}
+
+// ===== BUTTON STYLES =====
+.btn {
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px -1px var(--shadow-light);
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 10px 25px -3px var(--shadow-medium);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  // Button Variants
+  &--primary {
+    background: linear-gradient(
+      135deg,
+      var(--brand-primary) 0%,
+      var(--brand-primary-dark) 100%
+    );
+    color: white;
+  }
+
+  &--success {
+    background: linear-gradient(
+      135deg,
+      var(--color-success) 0%,
+      var(--color-success-dark) 100%
+    );
+    color: white;
+  }
+
+  &--warning {
+    background: linear-gradient(
+      135deg,
+      var(--color-warning) 0%,
+      var(--color-warning-dark) 100%
+    );
+    color: var(--text-dark);
+  }
+
+  &--danger {
+    background: linear-gradient(
+      135deg,
+      var(--color-danger) 0%,
+      var(--color-danger-dark) 100%
+    );
+    color: white;
+  }
+
+  &--gray {
+    background: linear-gradient(
+      135deg,
+      var(--color-gray-light) 0%,
+      var(--color-gray-dark) 100%
+    );
+    color: white;
+  }
+
+  &--info {
+    background: linear-gradient(
+      135deg,
+      var(--color-info) 0%,
+      var(--color-info-dark) 100%
+    );
+    color: var(--text-dark);
+  }
+}
+
+// ===== LOADING SPINNER =====
+.loading-page {
+  background: var(--bg-main-gradient);
+
+  &__text {
+    color: var(--text-secondary);
+  }
+}
+
+.spinner {
+  border-color: var(--brand-primary);
+  border-top-color: transparent;
+}
+
+// ===== SEARCH ICON =====
+.search-icon {
+  color: var(--text-light);
+}
+
+// ===== ANIMATIONS =====
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px var(--brand-primary);
+  }
+  50% {
+    box-shadow:
+      0 0 20px var(--brand-primary),
+      0 0 30px var(--brand-primary);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.animate-slideDown {
+  animation: slideDown 0.4s ease-out;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-delay-100 {
+  animation-delay: 0.1s;
+  animation-fill-mode: both;
+}
+
+.animate-delay-200 {
+  animation-delay: 0.2s;
+  animation-fill-mode: both;
+}
+
+.animate-delay-300 {
+  animation-delay: 0.3s;
+  animation-fill-mode: both;
+}
+
+// ===== RESPONSIVE UTILITIES =====
+@media (max-width: 640px) {
+  .dashboard__stat-card {
+    &__number {
+      font-size: 1.5rem;
+    }
+  }
+
+  .dashboard__header__title {
+    font-size: 1.875rem;
+  }
+}
+
+// ===== DARK THEME ENHANCEMENTS =====
+.glass-effect {
+  background: rgba(30, 30, 30, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.neon-border {
+  border: 1px solid var(--brand-primary);
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+}
+
+.dark-scrollbar {
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--bg-card);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-gray-dark);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-light);
+  }
+}

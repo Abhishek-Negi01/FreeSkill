@@ -1,9 +1,10 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AuthContext } from "../../context/AuthContext";
-import { questionService } from "../../api/services/questions";
-import { answerService } from "../../api/services/answers";
-import toast from "react-hot-toast";
+import { useUser } from "@clerk/clerk-react";
+import useQuestionDetail from "../../hooks/api/useQuestionDetail";
+import useAnswers from "../../hooks/api/useAnswers";
+import useQuestionEdit from "../../hooks/ui/useQuestionEdit";
+import useAnswerEdit from "../../hooks/ui/useAnswerEdit";
 import {
   FaArrowLeft,
   FaCalendar,
@@ -16,25 +17,59 @@ import {
   FaTrash,
 } from "react-icons/fa";
 import { BsBookmark, BsBookmarkFill } from "react-icons/bs";
-import { bookmarkServices } from "../../api/services/bookmarks.js";
 
 const QuestionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
-  const [question, setQuestion] = useState(null);
-  const [answers, setAnswers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useUser();
   const [answerBody, setAnswerBody] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState(false);
-  const [editQuestionTitle, setEditQuestionTitle] = useState("");
-  const [editQuestionBody, setEditQuestionBody] = useState("");
-  const [editingAnswerId, setEditingAnswerId] = useState(null);
-  const [editAnswerBody, setEditAnswerBody] = useState("");
-  const [isBookmarked, setIsBookmarked] = useState(false);
 
-  // Helper to get acceptedAnswer ID (handles both string and object)
+  // Custom hooks
+  const {
+    question,
+    answers,
+    loading,
+    isBookmarked,
+    voteQuestion,
+    updateQuestion,
+    deleteQuestion,
+    toggleBookmark,
+    setAnswers,
+    setQuestion,
+  } = useQuestionDetail(id);
+
+  const {
+    loading: answerLoading,
+    createAnswer,
+    voteAnswer,
+    acceptAnswer,
+    updateAnswer,
+    deleteAnswer,
+  } = useAnswers();
+
+  const {
+    editingQuestion,
+    editQuestionTitle,
+    editQuestionBody,
+    setEditQuestionTitle,
+    setEditQuestionBody,
+    startEdit: startQuestionEdit,
+    cancelEdit: cancelQuestionEdit,
+    getEditData,
+    isValid: isQuestionValid,
+  } = useQuestionEdit();
+
+  const {
+    editingAnswerId,
+    editAnswerBody,
+    setEditAnswerBody,
+    startEdit: startAnswerEdit,
+    cancelEdit: cancelAnswerEdit,
+    isEditing: isAnswerEditing,
+    isValid: isAnswerValid,
+  } = useAnswerEdit();
+
+  // Helper to get acceptedAnswer ID
   const getAcceptedAnswerId = () => {
     if (!question?.acceptedAnswer) return null;
     return typeof question.acceptedAnswer === "string"
@@ -42,229 +77,78 @@ const QuestionDetail = () => {
       : question.acceptedAnswer._id;
   };
 
-  const fetchQuestion = async () => {
-    try {
-      const response = await questionService.getById(id);
-      setQuestion(response.data.data.question);
-    } catch (error) {
-      toast.error("Failed to load question");
-      console.log(error);
-    }
-  };
-
-  const fetchAnswers = async () => {
-    try {
-      const response = await answerService.getByQuestion(id);
-      setAnswers(response.data.data.answers);
-    } catch (error) {
-      toast.error("Failed to load answers");
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchQuestion();
-    fetchAnswers();
-  }, [id]);
-
-  const handleUpvoteQuestion = async () => {
+  // Question handlers
+  const handleVoteQuestion = (type) => {
     if (!user) {
       toast.error("Please login to vote");
       return;
     }
-    try {
-      const response = await questionService.upvote(id);
-      setQuestion(response.data.data.question);
-      toast.success("Voted!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to vote");
-    }
+    voteQuestion(type);
   };
 
-  const handleDownvoteQuestion = async () => {
-    if (!user) {
-      toast.error("Please login to vote");
-      return;
-    }
-
-    try {
-      const response = await questionService.downvote(id);
-      setQuestion(response.data.data.question);
-      toast.success("Voted!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to vote");
+  const handleUpdateQuestion = async (e) => {
+    e.preventDefault();
+    const result = await updateQuestion(getEditData());
+    if (result.success) {
+      cancelQuestionEdit();
     }
   };
 
   const handleDeleteQuestion = async () => {
     if (!confirm("Delete this question?")) return;
-
-    try {
-      await questionService.delete(id);
-      toast.success("Question deleted!");
+    const result = await deleteQuestion();
+    if (result.success) {
       navigate("/questions");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to delete");
     }
   };
 
+  // Answer handlers
   const handleSubmitAnswer = async (e) => {
     e.preventDefault();
-
     if (!user) {
       toast.error("Please login to answer");
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const response = await answerService.create({
-        questionId: id,
-        body: answerBody,
-      });
-      setAnswers([...answers, response.data.data.answer]);
+    const result = await createAnswer(id, answerBody);
+    if (result.success) {
+      setAnswers([...answers, result.answer]);
       setAnswerBody("");
-      toast.success("Answer posted!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to post answer");
-    } finally {
-      setSubmitting(false);
     }
   };
 
-  const handleUpvoteAnswer = async (answerId) => {
+  const handleVoteAnswer = async (answerId, type) => {
     if (!user) {
       toast.error("Please login to vote");
       return;
     }
 
-    try {
-      const response = await answerService.upvote(answerId);
-      setAnswers(
-        answers.map((a) =>
-          a._id === answerId ? response.data.data.answer : a,
-        ),
-      );
-      toast.success("Voted!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to vote");
-    }
-  };
-
-  const handleDownvoteAnswer = async (answerId) => {
-    if (!user) {
-      toast.error("Please login to vote");
-      return;
-    }
-
-    try {
-      const response = await answerService.downvote(answerId);
-      setAnswers(
-        answers.map((a) =>
-          a._id === answerId ? response.data.data.answer : a,
-        ),
-      );
-      toast.success("Voted!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to vote");
+    const result = await voteAnswer(answerId, type);
+    if (result.success) {
+      setAnswers(answers.map((a) => (a._id === answerId ? result.answer : a)));
     }
   };
 
   const handleAcceptAnswer = async (answerId) => {
-    try {
-      const response = await answerService.accept(answerId);
+    const result = await acceptAnswer(answerId);
+    if (result.success) {
+      setQuestion(result.question);
+    }
+  };
 
-      // console.log("Backend response:", response.data.data);
-      // console.log(
-      //   "Accepted answer ID:",
-      //   response.data.data.question?.acceptedAnswer,
-      // );
-      setQuestion(response.data.data.question);
-      toast.success("Answer accepted!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to accept answer");
+  const handleUpdateAnswer = async (answerId) => {
+    const result = await updateAnswer(answerId, editAnswerBody);
+    if (result.success) {
+      setAnswers(answers.map((a) => (a._id === answerId ? result.answer : a)));
+      cancelAnswerEdit();
     }
   };
 
   const handleDeleteAnswer = async (answerId) => {
-    if (!confirm("Delete this answer?")) {
-      return;
-    }
-
-    try {
-      await answerService.delete(answerId);
+    if (!confirm("Delete this answer?")) return;
+    const result = await deleteAnswer(answerId);
+    if (result.success) {
       setAnswers(answers.filter((a) => a._id !== answerId));
-      toast.success("Answer deleted!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to delete");
-    }
-  };
-
-  const handleEditQuestion = () => {
-    setEditingQuestion(true);
-    setEditQuestionTitle(question.title);
-    setEditQuestionBody(question.body);
-  };
-
-  const handleUpdateQuestion = async (e) => {
-    e.preventDefault();
-
-    try {
-      const response = await questionService.update(id, {
-        title: editQuestionTitle,
-        body: editQuestionBody,
-      });
-      setQuestion(response.data.data.question);
-      setEditingQuestion(false);
-      toast.success("Question updated!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to update");
-    }
-  };
-
-  const handleCancelEditQuestion = () => {
-    setEditingQuestion(false);
-    setEditQuestionTitle("");
-    setEditQuestionBody("");
-  };
-
-  const handleEditAnswer = (answer) => {
-    setEditingAnswerId(answer._id);
-    setEditAnswerBody(answer.body);
-  };
-
-  const handleUpdateAnswer = async (answerId) => {
-    try {
-      const response = await answerService.update(answerId, {
-        body: editAnswerBody,
-      });
-      setAnswers(
-        answers.map((a) =>
-          a._id === answerId ? response.data.data.answer : a,
-        ),
-      );
-      setEditingAnswerId(null);
-      setEditAnswerBody("");
-      toast.success("Answer updated!");
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to update");
-    }
-  };
-
-  const handleCancelEditAnswer = () => {
-    setEditingAnswerId(null);
-    setEditAnswerBody("");
-  };
-
-  const handleToggleBookmark = async () => {
-    try {
-      await bookmarkServices.toggle(id);
-      setIsBookmarked(!isBookmarked);
-      toast.success(isBookmarked ? "Bookmark removed" : "Bookmark added");
-    } catch (error) {
-      toast.error("Failed to toggle bookmark");
     }
   };
 
@@ -336,7 +220,8 @@ const QuestionDetail = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
+                  disabled={!isQuestionValid()}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
                   style={{
                     background:
                       "linear-gradient(135deg, #10b981 0%, #059669 100%)",
@@ -347,7 +232,7 @@ const QuestionDetail = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={handleCancelEditQuestion}
+                  onClick={cancelQuestionEdit}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
                   style={{
                     background:
@@ -369,7 +254,7 @@ const QuestionDetail = () => {
                   {question.title}
                 </h1>
                 <button
-                  onClick={handleToggleBookmark}
+                  onClick={toggleBookmark}
                   className="p-3 rounded-lg hover:bg-gray-100 transition-all hover:scale-110 shrink-0"
                   title={isBookmarked ? "Remove bookmark" : "Add bookmark"}
                 >
@@ -441,7 +326,7 @@ const QuestionDetail = () => {
                 <span className="flex items-center gap-1.5">
                   <FaUser />
                   <span className="font-medium">
-                    {question.askedBy?.fullname || question.askedBy?.username}
+                    {question.askedByUsername || "Anonymous"}
                   </span>
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -456,7 +341,7 @@ const QuestionDetail = () => {
               >
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={handleUpvoteQuestion}
+                    onClick={() => handleVoteQuestion("up")}
                     className="flex items-center gap-1.5 px-4 py-2.5 border-2 rounded-lg font-semibold transition-all hover:scale-105"
                     style={{ borderColor: "#d1fae5", background: "#f0fdf4" }}
                   >
@@ -469,7 +354,7 @@ const QuestionDetail = () => {
                     </span>
                   </button>
                   <button
-                    onClick={handleDownvoteQuestion}
+                    onClick={() => handleVoteQuestion("down")}
                     className="flex items-center gap-1.5 px-4 py-2.5 border-2 rounded-lg font-semibold transition-all hover:scale-105"
                     style={{ borderColor: "#fecaca", background: "#fef2f2" }}
                   >
@@ -483,10 +368,10 @@ const QuestionDetail = () => {
                   </button>
                 </div>
 
-                {user && user._id === question.askedBy?._id && (
+                {user && user.id === question.askedBy && (
                   <div className="flex gap-3">
                     <button
-                      onClick={handleEditQuestion}
+                      onClick={() => startQuestionEdit(question)}
                       className="flex items-center gap-1.5 text-sm md:text-base font-semibold transition-colors hover:underline"
                       style={{ color: "#3b82f6" }}
                     >
@@ -517,11 +402,8 @@ const QuestionDetail = () => {
 
           <div className="space-y-4">
             {answers.map((answer) => {
-              const acceptedId =
-                typeof question.acceptedAnswer === "string"
-                  ? question.acceptedAnswer
-                  : question.acceptedAnswer?._id;
-              const isEditing = editingAnswerId === answer._id;
+              const acceptedId = getAcceptedAnswerId();
+              const isEditing = isAnswerEditing(answer._id);
               const isAccepted = acceptedId === answer._id;
 
               return (
@@ -560,7 +442,8 @@ const QuestionDetail = () => {
                       <div className="flex flex-col sm:flex-row gap-3">
                         <button
                           onClick={() => handleUpdateAnswer(answer._id)}
-                          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
+                          disabled={!isAnswerValid()}
+                          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
                           style={{
                             background:
                               "linear-gradient(135deg, #10b981 0%, #059669 100%)",
@@ -570,7 +453,7 @@ const QuestionDetail = () => {
                           Save Changes
                         </button>
                         <button
-                          onClick={handleCancelEditAnswer}
+                          onClick={cancelAnswerEdit}
                           className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
                           style={{
                             background:
@@ -598,8 +481,7 @@ const QuestionDetail = () => {
                         <span className="flex items-center gap-1.5">
                           <FaUser />
                           <span className="font-medium">
-                            {answer.answeredBy?.fullname ||
-                              answer.answeredBy?.username}
+                            {answer.answeredByUsername || "Anonymous"}
                           </span>
                         </span>
                         <span className="flex items-center gap-1.5">
@@ -614,7 +496,7 @@ const QuestionDetail = () => {
                       >
                         <div className="flex items-center gap-2 flex-wrap">
                           <button
-                            onClick={() => handleUpvoteAnswer(answer._id)}
+                            onClick={() => handleVoteAnswer(answer._id, "up")}
                             className="flex items-center gap-1.5 px-3 md:px-4 py-2 border-2 rounded-lg font-semibold transition-all hover:scale-105"
                             style={{
                               borderColor: "#d1fae5",
@@ -630,7 +512,7 @@ const QuestionDetail = () => {
                             </span>
                           </button>
                           <button
-                            onClick={() => handleDownvoteAnswer(answer._id)}
+                            onClick={() => handleVoteAnswer(answer._id, "down")}
                             className="flex items-center gap-1.5 px-3 md:px-4 py-2 border-2 rounded-lg font-semibold transition-all hover:scale-105"
                             style={{
                               borderColor: "#fecaca",
@@ -646,27 +528,26 @@ const QuestionDetail = () => {
                             </span>
                           </button>
 
-                          {user &&
-                            user._id === question.askedBy?._id &&
-                            !isAccepted && (
-                              <button
-                                onClick={() => handleAcceptAnswer(answer._id)}
-                                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs md:text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
-                                style={{
-                                  background:
-                                    "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                                  color: "white",
-                                }}
-                              >
-                                <FaCheckCircle /> Accept
-                              </button>
-                            )}
+                          {user && user.id === question.askedBy && (
+                            <button
+                              onClick={() => handleAcceptAnswer(answer._id)}
+                              className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs md:text-sm transition-all duration-300 shadow-lg hover:shadow-xl ${
+                                isAccepted
+                                  ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                                  : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                              }`}
+                              style={{ color: "white" }}
+                            >
+                              <FaCheckCircle />
+                              {isAccepted ? "Unaccept" : "Accept"}
+                            </button>
+                          )}
                         </div>
 
-                        {user && user._id === answer.answeredBy?._id && (
+                        {user && user.id === answer.answeredBy && (
                           <div className="flex gap-3">
                             <button
-                              onClick={() => handleEditAnswer(answer)}
+                              onClick={() => startAnswerEdit(answer)}
                               className="flex items-center gap-1.5 text-sm font-semibold transition-colors hover:underline"
                               style={{ color: "#3b82f6" }}
                             >
@@ -710,21 +591,21 @@ const QuestionDetail = () => {
                 rows={8}
                 placeholder="Write your answer here..."
                 required
-                disabled={submitting}
+                disabled={answerLoading}
                 style={{ background: "white", color: "#1f2937" }}
               />
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={answerLoading}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 style={{
-                  background: submitting
+                  background: answerLoading
                     ? "#9ca3af"
                     : "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
                   color: "white",
                 }}
               >
-                {submitting ? (
+                {answerLoading ? (
                   <>
                     <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Posting...

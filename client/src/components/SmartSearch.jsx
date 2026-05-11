@@ -1,12 +1,11 @@
 import React, { useState } from "react";
-import { youtubeServices } from "../api/services/youtube.js";
-import toast from "react-hot-toast";
+import useYoutube from "../hooks/api/useYoutube";
+import useToggle from "../hooks/ui/useToggle";
 import {
   FaYoutube,
   FaPlus,
   FaSearch,
   FaEye,
-  FaClock,
   FaEyeSlash,
   FaChevronDown,
   FaChevronUp,
@@ -16,41 +15,37 @@ import { MdPlaylistPlay } from "react-icons/md";
 const SmartSearch = ({ onAddVideo, onImportPlaylist }) => {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("all");
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [nextPageToken, setNextPageToken] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [open, setOpen] = useState(false);
 
-  const searchContent = async (e) => {
+  // Use existing useYoutube hook instead of duplicating logic
+  const {
+    searchResults: results,
+    loading,
+    hasMore,
+    smartSearch,
+    loadMore,
+    clearResults: clearYoutubeResults,
+  } = useYoutube();
+
+  const { value: open, toggle: toggleOpen } = useToggle(false);
+
+  const handleSearch = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setHasSearched(true);
-    try {
-      const res = await youtubeServices.smartSearch(query, type);
-      setResults(res.data.data.results);
-      setNextPageToken(res.data.data.nextPageToken);
-    } catch {
-      toast.error("Failed to search");
-    } finally {
-      setLoading(false);
-    }
+    await smartSearch(query, type);
   };
 
-  const loadMore = async () => {
-    if (!nextPageToken) return;
-    setLoading(true);
-    try {
-      const res = await youtubeServices.smartSearch(query, type, nextPageToken);
-      setResults([...results, ...res.data.data.results]);
-      setNextPageToken(res.data.data.nextPageToken);
-    } catch {
-      toast.error("Failed to load more");
-    } finally {
-      setLoading(false);
-    }
+  const handleLoadMore = async () => {
+    await loadMore(query, "smart");
   };
 
+  const clearResults = () => {
+    clearYoutubeResults();
+    setHasSearched(false);
+    setQuery("");
+  };
+
+  // Move these to utils/formatters.js later
   const formatDuration = (duration) => {
     const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
     if (!match) return "";
@@ -68,18 +63,12 @@ const SmartSearch = ({ onAddVideo, onImportPlaylist }) => {
     return `${n}`;
   };
 
-  const clearResults = () => {
-    setResults([]);
-    setHasSearched(false);
-    setQuery("");
-  };
-
   return (
     <div className="border border-purple-200 rounded-xl overflow-hidden bg-purple-50/50">
       {/* Toggle Header */}
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={toggleOpen}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-purple-50 transition-colors duration-200"
       >
         <div className="flex items-center gap-2.5">
@@ -106,7 +95,7 @@ const SmartSearch = ({ onAddVideo, onImportPlaylist }) => {
       {/* Expanded Content */}
       {open && (
         <div className="px-4 pb-4 animate-slideDown">
-          <form onSubmit={searchContent} className="flex gap-2 mb-3">
+          <form onSubmit={handleSearch} className="flex gap-2 mb-3">
             <div className="relative flex-1">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
               <input
@@ -261,9 +250,9 @@ const SmartSearch = ({ onAddVideo, onImportPlaylist }) => {
                   </div>
                 </div>
               ))}
-              {nextPageToken && (
+              {hasMore && (
                 <button
-                  onClick={loadMore}
+                  onClick={handleLoadMore}
                   disabled={loading}
                   className="w-full py-2 rounded-lg font-semibold text-xs text-white shadow transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50"
                   style={{

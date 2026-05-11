@@ -27,6 +27,8 @@ import answerRouter from "./routes/answer.routes.js";
 import commentRouter from "./routes/comment.routes.js";
 import bookmarkRouter from "./routes/bookmark.routes.js";
 import notificationRouter from "./routes/notification.routes.js";
+import noteRouter from "./routes/note.routes.js";
+import todoRouter from "./routes/todo.routes.js";
 
 app.use("/api/healthcheck", healthCheckRouter);
 app.use("/api/users", userRouter);
@@ -38,6 +40,8 @@ app.use("/api/answers", answerRouter);
 app.use("/api/comments", commentRouter);
 app.use("/api/bookmarks", bookmarkRouter);
 app.use("/api/notifications", notificationRouter);
+app.use("/api/notes", noteRouter);
+app.use("/api/todos", todoRouter);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;

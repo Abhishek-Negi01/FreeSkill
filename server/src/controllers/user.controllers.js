@@ -10,6 +10,7 @@ import { Notification } from "../models/notification.models.js";
 import { Comment } from "../models/comment.models.js";
 import { clerkClient } from "@clerk/express";
 
+
 const getMe = asyncHandler(async (req, res) => {
   return res
     .status(200)
@@ -20,50 +21,57 @@ const deleteMe = asyncHandler(async (req, res) => {
   const userId = req.auth?.userId;
   if (!userId) throw new ApiError(401, "Unauthorized");
 
+  // Get user's courses and related data
   const courses = await Course.find({ creator: userId });
   const courseIds = courses.map((c) => c._id);
 
-  await Video.deleteMany({ course: { $in: courseIds } });
-  await Course.deleteMany({ creator: userId });
-
   const questions = await Question.find({ askedBy: userId });
-  const questionsIds = questions.map((q) => q._id);
+  const questionIds = questions.map((q) => q._id);
 
   const userAnswers = await Answer.find({ answeredBy: userId });
   const userAnswerIds = userAnswers.map((a) => a._id);
 
+  // Clean up in proper order to maintain referential integrity
+
+  // 1. Remove accepted answer references
   await Question.updateMany(
     { acceptedAnswer: { $in: userAnswerIds } },
     { $set: { acceptedAnswer: null } },
   );
 
-  await Comment.deleteMany({ parentId: { $in: userAnswerIds } });
-  await Answer.deleteMany({ answeredBy: userId });
-
-  const answersOnUserQuestions = await Answer.find({
-    question: { $in: questionsIds },
+  // 2. Delete comments on user's answers and questions
+  await Comment.deleteMany({
+    parentId: { $in: [...userAnswerIds, ...questionIds] },
   });
-  const answersOnUserQuestionIds = answersOnUserQuestions.map((a) => a._id);
 
-  await Comment.deleteMany({ parentId: { $in: answersOnUserQuestionIds } });
-  await Comment.deleteMany({ parentId: { $in: questionsIds } });
-  await Answer.deleteMany({ question: { $in: questionsIds } });
+  // 3. Delete user's comments
+  await Comment.deleteMany({ commentedBy: userId });
+
+  // 4. Delete answers on user's questions
+  const answersOnUserQuestions = await Answer.find({
+    question: { $in: questionIds },
+  });
+  await Answer.deleteMany({ question: { $in: questionIds } });
+
+  // 5. Delete user's answers and questions
+  await Answer.deleteMany({ answeredBy: userId });
   await Question.deleteMany({ askedBy: userId });
 
-  await Comment.deleteMany({ commentedBy: userId });
-  await Bookmark.deleteMany({ userId: userId });
+  // 6. Delete course-related data
+  await Video.deleteMany({ course: { $in: courseIds } });
+  await Course.deleteMany({ creator: userId });
+
+  // 7. Delete user's bookmarks and notifications
+  await Bookmark.deleteMany({ userId });
   await Notification.deleteMany({ user: userId });
 
+  // 8. Delete user from Clerk
   const deletedUser = await clerkClient.users.deleteUser(userId);
 
   return res
     .status(200)
     .json(
-      new ApiResponse(
-        200,
-        { deletedUser: deletedUser },
-        "Account deleted successfully.",
-      ),
+      new ApiResponse(200, { deletedUser }, "Account deleted successfully."),
     );
 });
 

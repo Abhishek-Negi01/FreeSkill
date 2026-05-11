@@ -1,61 +1,57 @@
-import React, { useEffect, useState } from "react";
-import { notificationService } from "../api/services/notifications";
+import React from "react";
+import useNotifications from "../hooks/api/useNotifications";
 import { Link } from "react-router-dom";
 import { IoNotifications, IoCheckmarkDone, IoTrash } from "react-icons/io5";
 
 const Notifications = () => {
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      const response = await notificationService.getAll();
-      setNotifications(response.data.data.notifications);
-      setUnreadCount(response.data.data.unreadCount);
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    handleNotificationClick,
+    formatTime,
+    hasNotifications,
+    hasUnread,
+    isEmpty,
+    notificationCount,
+  } = useNotifications();
 
   const handleMarkAsRead = async (notificationId) => {
-    try {
-      await notificationService.markAsRead(notificationId);
-      fetchNotifications();
-    } catch (error) {
-      console.error("Failed to mark as read:", error);
-    }
+    await markAsRead(notificationId);
   };
 
   const handleMarkAllAsRead = async () => {
-    try {
-      await notificationService.markAllAsRead();
-      fetchNotifications();
-    } catch (error) {
-      console.error("Failed to mark all as read:", error);
-    }
+    await markAllAsRead();
   };
 
   const handleDelete = async (notificationId) => {
-    try {
-      await notificationService.delete(notificationId);
-      fetchNotifications();
-    } catch (error) {
-      console.error("Failed to delete notification:", error);
-    }
+    await deleteNotification(notificationId);
   };
 
-  const formatTime = (date) => {
-    const notifDate = new Date(date);
-    return notifDate.toLocaleDateString();
+  const handleNotifClick = async (notification) => {
+    await handleNotificationClick(notification);
   };
+
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{
+          background: "linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)",
+        }}
+      >
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-4 text-sm font-medium" style={{ color: "#6b7280" }}>
+            Loading notifications...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -84,15 +80,27 @@ const Notifications = () => {
               Notifications
             </h1>
             <p className="text-sm" style={{ color: "#6b7280" }}>
-              {unreadCount > 0
+              {hasUnread
                 ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
-                : "All caught up!"}
+                : hasNotifications
+                  ? `All caught up! • ${notificationCount} total`
+                  : "No notifications yet"}
             </p>
           </div>
-          {unreadCount > 0 && (
+          {hasUnread && (
             <button
               onClick={handleMarkAllAsRead}
-              className="btn btn-primary text-sm whitespace-nowrap"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl whitespace-nowrap"
+              style={{
+                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                color: "white",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
             >
               <IoCheckmarkDone className="w-4 h-4" />
               Mark all read
@@ -100,12 +108,11 @@ const Notifications = () => {
           )}
         </div>
 
-        {loading ? (
-          <div className="flex justify-center items-center py-20">
-            <div className="spinner"></div>
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="card p-12 text-center animate-fadeIn">
+        {isEmpty ? (
+          <div
+            className="bg-white rounded-xl shadow-lg p-12 text-center animate-fadeIn"
+            style={{ border: "1px solid #e5e7eb" }}
+          >
             <IoNotifications
               className="w-16 h-16 mx-auto mb-4"
               style={{ color: "#d1d5db" }}
@@ -122,15 +129,18 @@ const Notifications = () => {
             {notifications.map((notif) => (
               <div
                 key={notif._id}
-                className={`card p-4 flex flex-col sm:flex-row justify-between gap-3 ${!notif.isRead ? "border-l-4" : ""}`}
+                className={`bg-white rounded-xl shadow-lg p-4 flex flex-col sm:flex-row justify-between gap-3 transition-all duration-300 hover:shadow-xl ${
+                  !notif.isRead ? "border-l-4" : ""
+                }`}
                 style={{
                   borderColor: !notif.isRead ? "#3b82f6" : "transparent",
                   background: !notif.isRead ? "#eff6ff" : "white",
+                  border: "1px solid #e5e7eb",
                 }}
               >
                 <Link
                   to={notif.link}
-                  onClick={() => !notif.isRead && handleMarkAsRead(notif._id)}
+                  onClick={() => handleNotifClick(notif)}
                   className="flex-1 min-w-0"
                 >
                   <div className="flex items-start gap-2 mb-2">

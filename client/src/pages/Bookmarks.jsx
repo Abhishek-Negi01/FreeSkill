@@ -1,40 +1,22 @@
-import React, { useEffect, useState } from "react";
-import { bookmarkServices } from "../api/services/bookmarks.js";
+import React from "react";
+import useBookmarks from "../hooks/api/useBookmarks";
 import { Link } from "react-router-dom";
 import { BiUpvote } from "react-icons/bi";
 import { BsChatDots, BsBookmarkFill } from "react-icons/bs";
 import { FaCheckCircle, FaBookmark, FaTrash } from "react-icons/fa";
-import toast from "react-hot-toast";
 
 const Bookmarks = () => {
-  const [bookmarks, setBookmarks] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchBookmarks();
-  }, []);
-
-  const fetchBookmarks = async () => {
-    try {
-      setLoading(true);
-      const response = await bookmarkServices.getAll();
-      setBookmarks(response.data.data.bookmarkedQuestions);
-    } catch (error) {
-      toast.error("Failed to load bookmarks");
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    bookmarks,
+    loading,
+    removeBookmark,
+    bookmarkCount,
+    hasBookmarks,
+    isEmpty,
+  } = useBookmarks();
 
   const handleRemoveBookmark = async (questionId) => {
-    try {
-      await bookmarkServices.toggle(questionId);
-      setBookmarks(bookmarks.filter((q) => q._id !== questionId));
-      toast.success("Bookmark removed");
-    } catch (error) {
-      toast.error("Failed to remove bookmark");
-    }
+    await removeBookmark(questionId);
   };
 
   if (loading) {
@@ -81,10 +63,11 @@ const Bookmarks = () => {
           </h1>
           <p className="text-sm md:text-base" style={{ color: "#6b7280" }}>
             Your saved questions for quick access
+            {hasBookmarks && ` • ${bookmarkCount} bookmarked`}
           </p>
         </div>
 
-        {bookmarks.length === 0 ? (
+        {isEmpty ? (
           <div
             className="bg-white rounded-xl shadow-lg p-12 text-center animate-fadeIn"
             style={{ border: "1px solid #e5e7eb" }}
@@ -186,6 +169,11 @@ const Bookmarks = () => {
                           Answered
                         </span>
                       )}
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-medium">
+                          Asked by {question.askedByUsername || "Anonymous"}
+                        </span>
+                      </span>
                     </div>
                   </Link>
 

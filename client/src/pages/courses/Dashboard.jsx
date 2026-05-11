@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { courseService } from "../../api/services/courses.js";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import toast from "react-hot-toast";
 import {
   FaPlus,
   FaSearch,
@@ -11,132 +9,86 @@ import {
   FaTrash,
   FaBook,
 } from "react-icons/fa";
+import { useCoursesContext } from "../../context/CoursesContext/CoursesProvider";
+import useCourseForm from "../../hooks/ui/useCourseForm";
+import "./style/course.scss";
 
 const Dashboard = () => {
-  const [courses, setCourses] = useState([]);
-  const [courseTitle, setCourseTitle] = useState("");
-  const [courseDescription, setCourseDescription] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editingCourse, setEditingCourse] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [fetchingCourses, setFetchingCourses] = useState(true);
 
+  const {
+    courses,
+    loading,
+    fetchingCourses,
+    createCourse,
+    updateCourse,
+    deleteCourse,
+    togglePublic,
+    courseStats,
+  } = useCoursesContext();
+
+  const {
+    courseTitle,
+    setCourseTitle,
+    courseDescription,
+    setCourseDescription,
+    showForm,
+    editingCourse,
+    startEdit,
+    cancelForm,
+    resetForm,
+    toggleForm,
+    getFormData,
+    isFormValid,
+    isEditing,
+  } = useCourseForm();
+
+  // Filter courses based on search
   const filteredCourses = courses.filter((c) =>
     c.title.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const createCourse = async (e) => {
+  // Handle form submission
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await courseService.create({
-        title: courseTitle,
-        description: courseDescription,
-      });
-      setCourses([...courses, res.data.data.course]);
-      setCourseTitle("");
-      setCourseDescription("");
-      setShowForm(false);
-      toast.success(res?.data?.message || "Course created successfully!");
-    } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to create course");
-    } finally {
-      setLoading(false);
+    if (!isFormValid()) return;
+
+    const formData = getFormData();
+    let result;
+
+    if (isEditing) {
+      result = await updateCourse(editingCourse._id, formData);
+    } else {
+      result = await createCourse(formData);
+    }
+
+    if (result.success) {
+      resetForm();
     }
   };
 
-  const updateCourse = async (e) => {
+  // Handle course actions
+  const handleEditCourse = (course, e) => {
     e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await courseService.update(editingCourse._id, {
-        title: courseTitle,
-        description: courseDescription,
-      });
-      setCourses(
-        courses.map((c) =>
-          c._id === editingCourse._id ? res.data.data.course : c,
-        ),
-      );
-      setCourseTitle("");
-      setCourseDescription("");
-      setEditingCourse(null);
-      setShowForm(false);
-      toast.success(res?.data?.message || "Course updated successfully!");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update course");
-    } finally {
-      setLoading(false);
-    }
+    startEdit(course);
   };
 
-  const deleteCourse = async (courseId) => {
-    if (!confirm("Delete this course? All videos will be lost.")) return;
-    try {
-      const res = await courseService.delete(courseId);
-      setCourses(courses.filter((c) => c._id !== courseId));
-      toast.success(res?.data?.message || "Course deleted successfully!");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete course");
-    }
+  const handleDeleteCourse = async (courseId) => {
+    if (!window.confirm("Delete this course? All videos will be lost.")) return;
+    await deleteCourse(courseId);
   };
 
-  const startEdit = (course, e) => {
-    e.preventDefault();
-    setEditingCourse(course);
-    setCourseTitle(course.title);
-    setCourseDescription(course.description);
-    setShowForm(true);
+  const handleTogglePublic = async (courseId, currentStatus) => {
+    await togglePublic(courseId, currentStatus);
   };
 
-  const cancelForm = () => {
-    setShowForm(false);
-    setEditingCourse(null);
-    setCourseTitle("");
-    setCourseDescription("");
-  };
-
-  const togglePublic = async (courseId, currentStatus) => {
-    try {
-      const res = await courseService.togglePublic(courseId);
-      setCourses(
-        courses.map((c) =>
-          c._id === courseId ? { ...c, isPublic: !currentStatus } : c,
-        ),
-      );
-      toast.success(res?.data?.message || "Course visibility updated!");
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to update visibility",
-      );
-    }
-  };
-
-  useEffect(() => {
-    courseService
-      .getAll()
-      .then((res) => {
-        setCourses(res.data.data.courses);
-        setFetchingCourses(false);
-      })
-      .catch(() => {
-        toast.error("Failed to load courses");
-        setFetchingCourses(false);
-      });
-  }, []);
-
+  // Loading state
   if (fetchingCourses) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{
-          background: "linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)",
-        }}
-      >
+      <div className="min-h-screen flex items-center justify-center loading-page">
         <div className="text-center">
-          <div className="inline-block w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-3 text-sm font-medium text-gray-500">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-sm font-medium loading-page__text">
             Loading courses...
           </p>
         </div>
@@ -145,111 +97,86 @@ const Dashboard = () => {
   }
 
   return (
-    <div
-      className="p-4 md:p-6 min-h-screen"
-      style={{
-        background: "linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)",
-      }}
-    >
+    <div className="min-h-screen p-4 md:p-6 dashboard__page">
       <div className="max-w-7xl mx-auto">
         {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-3 mb-5 animate-fadeIn">
-          <div className="bg-white rounded-xl p-3 md:p-4 shadow border border-gray-100 flex items-center gap-3">
-            <div
-              className="p-2 rounded-lg shrink-0"
-              style={{
-                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-              }}
-            >
-              <FaBook className="w-4 h-4 text-white" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 animate-fadeInUp">
+          <div className="dashboard__stat-card rounded-2xl p-6 flex items-center gap-4 hover:-translate-y-1 transition-all duration-300 border">
+            <div className="p-3 rounded-xl gradient-primary shrink-0">
+              <FaBook className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-lg md:text-2xl font-black text-blue-700">
+              <h3 className="text-2xl md:text-3xl font-black dashboard__stat-card__number">
                 {courses.length}
+              </h3>
+              <p className="text-sm font-medium dashboard__stat-card__label">
+                Total Courses
               </p>
-              <p className="text-xs text-gray-500 leading-tight">Total</p>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-3 md:p-4 shadow border border-gray-100 flex items-center gap-3">
-            <div
-              className="p-2 rounded-lg shrink-0"
-              style={{
-                background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-              }}
-            >
-              <FaGlobe className="w-4 h-4 text-white" />
+
+          <div className="dashboard__stat-card rounded-2xl p-6 flex items-center gap-4 hover:-translate-y-1 transition-all duration-300 border">
+            <div className="p-3 rounded-xl gradient-success shrink-0">
+              <FaGlobe className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-lg md:text-2xl font-black text-green-700">
+              <h3 className="text-2xl md:text-3xl font-black dashboard__stat-card__number">
                 {courses.filter((c) => c.isPublic).length}
+              </h3>
+              <p className="text-sm font-medium dashboard__stat-card__label">
+                Public Courses
               </p>
-              <p className="text-xs text-gray-500 leading-tight">Public</p>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-3 md:p-4 shadow border border-gray-100 flex items-center gap-3">
-            <div
-              className="p-2 rounded-lg shrink-0"
-              style={{
-                background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-              }}
-            >
-              <FaLock className="w-4 h-4 text-white" />
+
+          <div className="dashboard__stat-card rounded-2xl p-6 flex items-center gap-4 hover:-translate-y-1 transition-all duration-300 border">
+            <div className="p-3 rounded-xl gradient-warning shrink-0">
+              <FaLock className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-lg md:text-2xl font-black text-yellow-700">
+              <h3 className="text-2xl md:text-3xl font-black dashboard__stat-card__number">
                 {courses.filter((c) => !c.isPublic).length}
+              </h3>
+              <p className="text-sm font-medium dashboard__stat-card__label">
+                Private Courses
               </p>
-              <p className="text-xs text-gray-500 leading-tight">Private</p>
             </div>
           </div>
         </div>
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5 animate-fadeIn">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 animate-fadeInUp animate-delay-100">
           <div>
-            <h1
-              className="text-xl md:text-2xl font-bold"
-              style={{
-                background: "linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
+            <h1 className="text-3xl md:text-4xl font-bold mb-2 dashboard__header__title">
               My Courses
             </h1>
-            <p className="text-xs text-gray-500">
+            <p className="font-medium dashboard__header__subtitle">
               {courses.length} {courses.length === 1 ? "course" : "courses"} in
               your library
             </p>
           </div>
           <button
-            onClick={() => {
-              setShowForm(!showForm);
-              if (showForm) cancelForm();
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm text-white shadow transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg whitespace-nowrap"
-            style={{
-              background: showForm
-                ? "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)"
-                : "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-            }}
+            onClick={toggleForm}
+            className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:-translate-y-1 btn ${
+              showForm ? "btn--gray" : "btn--primary"
+            }`}
           >
-            <FaPlus className="w-3.5 h-3.5" />
+            <FaPlus className="w-4 h-4" />
             {showForm ? "Cancel" : "New Course"}
           </button>
         </div>
 
         {/* Search */}
         {!showForm && courses.length > 0 && (
-          <div className="mb-5">
-            <div className="relative max-w-sm">
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <div className="mb-8 animate-fadeInUp animate-delay-200">
+            <div className="relative max-w-md">
+              <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 search-icon" />
               <input
                 type="text"
                 placeholder="Search courses..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                className="w-full pl-12 pr-4 py-3 rounded-xl border-2 focus:outline-none transition-all duration-300 focus:shadow-md dashboard__search-input"
               />
             </div>
           </div>
@@ -257,71 +184,62 @@ const Dashboard = () => {
 
         {/* Create/Edit Form */}
         {showForm && (
-          <div className="bg-white rounded-xl shadow p-5 mb-5 animate-slideDown border border-gray-100">
-            <h2 className="text-base font-bold mb-4 text-gray-800">
-              {editingCourse ? "Edit Course" : "Create New Course"}
+          <div className="dashboard__form rounded-2xl p-8 mb-8 border animate-slideDown">
+            <h2 className="text-xl font-bold mb-6 dashboard__form__title">
+              {isEditing ? "Edit Course" : "Create New Course"}
             </h2>
-            <form onSubmit={editingCourse ? updateCourse : createCourse}>
-              <div className="mb-4">
-                <label className="block font-semibold mb-1.5 text-xs text-gray-600">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold mb-2 dashboard__form__label">
                   Course Title
                 </label>
                 <input
                   type="text"
                   value={courseTitle}
                   onChange={(e) => setCourseTitle(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   placeholder="e.g., Complete Web Development Course"
                   required
                   disabled={loading}
+                  className="w-full px-4 py-3 rounded-xl border-2 focus:outline-none transition-all duration-300 dashboard__form__input"
                 />
               </div>
-              <div className="mb-4">
-                <label className="block font-semibold mb-1.5 text-xs text-gray-600">
+              <div>
+                <label className="block text-sm font-semibold mb-2 dashboard__form__label">
                   Description
                 </label>
                 <textarea
                   value={courseDescription}
                   onChange={(e) => setCourseDescription(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none"
-                  rows={3}
                   placeholder="Describe what you'll learn..."
+                  rows={4}
                   required
                   disabled={loading}
+                  className="w-full px-4 py-3 rounded-xl border-2 focus:outline-none resize-none transition-all duration-300 dashboard__form__input"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm text-white shadow transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    background: loading
-                      ? "#9ca3af"
-                      : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                  }}
+                  disabled={loading || !isFormValid()}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none btn btn--success"
                 >
                   {loading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       Saving...
                     </>
-                  ) : editingCourse ? (
+                  ) : isEditing ? (
                     "Update Course"
                   ) : (
                     "Create Course"
                   )}
                 </button>
-                {editingCourse && (
+                {isEditing && (
                   <button
                     type="button"
                     onClick={cancelForm}
                     disabled={loading}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm text-white shadow transition-all duration-200 hover:-translate-y-0.5"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                    }}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 hover:-translate-y-1 btn btn--gray"
                   >
                     Cancel
                   </button>
@@ -333,67 +251,77 @@ const Dashboard = () => {
 
         {/* Courses Grid */}
         {filteredCourses.length === 0 ? (
-          <div className="bg-white rounded-xl shadow p-10 text-center animate-fadeIn border border-gray-100">
-            <div
-              className="w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
-              }}
-            >
-              <FaBook className="w-7 h-7 text-blue-500" />
+          <div className="dashboard__empty-state rounded-2xl p-12 text-center border animate-fadeInUp animate-delay-300">
+            <div className="w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center dashboard__empty-state__icon-bg">
+              <FaBook className="w-8 h-8 dashboard__empty-state__icon" />
             </div>
-            <h3 className="text-base font-bold mb-1 text-gray-700">
+            <h3 className="text-xl font-bold mb-2 dashboard__empty-state__title">
               {searchQuery ? "No courses found" : "No courses yet"}
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="dashboard__empty-state__description">
               {searchQuery
-                ? "Try adjusting your search"
-                : 'Click "New Course" above to get started'}
+                ? "Try adjusting your search terms"
+                : 'Click "New Course" above to create your first course'}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fadeIn">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeInUp animate-delay-300">
             {filteredCourses.map((course) => (
               <div
                 key={course._id}
-                className="bg-white rounded-xl shadow p-5 border border-gray-100 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
+                className="course-card rounded-2xl p-6 border transition-all duration-300 hover:-translate-y-2"
               >
-                <Link to={`/courses/${course._id}`}>
+                <Link to={`/courses/${course._id}`} className="block">
                   {course.isPublic && (
-                    <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold mb-2"
-                      style={{ background: "#d1fae5", color: "#065f46" }}
-                    >
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold mb-4 course-card__badge--public">
                       <FaGlobe className="w-3 h-3" /> Public
                     </span>
                   )}
-                  <h3 className="font-bold text-base mb-1.5 line-clamp-2 text-gray-800">
+                  <h3 className="font-bold text-lg mb-3 line-clamp-2 leading-tight course-card__title">
                     {course.title}
                   </h3>
-                  <p className="text-xs mb-3 line-clamp-2 text-gray-500">
+                  <p className="text-sm mb-4 line-clamp-2 leading-relaxed course-card__description">
                     {course.description}
                   </p>
+
+                  {/* Course Statistics */}
+                  {courseStats[course._id] && (
+                    <div className="text-xs text-muted mb-4 space-y-1">
+                      <div className="flex justify-between">
+                        <span>
+                          {courseStats[course._id].totalVideos} videos
+                        </span>
+                        <span>
+                          {courseStats[course._id].totalDurationFormatted}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>
+                          {courseStats[course._id].completedVideos} completed
+                        </span>
+                        <span>
+                          {courseStats[course._id].completionRate}% done
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </Link>
-                <div className="flex flex-col gap-1.5 pt-3 border-t border-gray-100">
-                  <div className="flex gap-1.5">
+
+                <div className="pt-4 border-t space-y-3 course-card__divider">
+                  <div className="flex gap-2">
                     <button
-                      onClick={(e) => startEdit(course, e)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs text-white shadow transition-all duration-200 hover:-translate-y-0.5"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                      }}
+                      onClick={(e) => handleEditCourse(course, e)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-semibold text-xs text-white transition-all duration-300 hover:-translate-y-0.5 btn btn--primary"
                     >
                       <FaEdit className="w-3 h-3" /> Edit
                     </button>
                     <button
-                      onClick={() => togglePublic(course._id, course.isPublic)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs text-white shadow transition-all duration-200 hover:-translate-y-0.5"
-                      style={{
-                        background: course.isPublic
-                          ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
-                          : "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                      }}
+                      onClick={() =>
+                        handleTogglePublic(course._id, course.isPublic)
+                      }
+                      className={`flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-semibold text-xs text-white transition-all duration-300 hover:-translate-y-0.5 btn ${
+                        course.isPublic ? "btn--success" : "btn--gray"
+                      }`}
                     >
                       {course.isPublic ? (
                         <>
@@ -407,12 +335,8 @@ const Dashboard = () => {
                     </button>
                   </div>
                   <button
-                    onClick={() => deleteCourse(course._id)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs text-white shadow transition-all duration-200 hover:-translate-y-0.5"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                    }}
+                    onClick={() => handleDeleteCourse(course._id)}
+                    className="w-full inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg font-semibold text-xs text-white transition-all duration-300 hover:-translate-y-0.5 btn btn--danger"
                   >
                     <FaTrash className="w-3 h-3" /> Delete
                   </button>

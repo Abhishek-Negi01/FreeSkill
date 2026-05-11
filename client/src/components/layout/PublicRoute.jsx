@@ -1,11 +1,10 @@
-import { useContext } from "react";
-import { AuthContext } from "../../context/AuthContext";
+import { useUser } from "@clerk/clerk-react";
 import { Navigate } from "react-router-dom";
 
 export default function PublicRoute({ children }) {
-  const { user, loading } = useContext(AuthContext);
+  const { isLoaded, isSignedIn } = useUser();
 
-  if (loading) {
+  if (!isLoaded) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -32,5 +31,5 @@ export default function PublicRoute({ children }) {
     );
   }
 
-  return user ? <Navigate to="/dashboard" replace /> : children;
+  return isSignedIn ? <Navigate to="/dashboard" replace /> : children;
 }

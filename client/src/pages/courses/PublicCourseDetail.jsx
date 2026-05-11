@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { courseService } from "../../api/services/courses";
-import { videoServices } from "../../api/services/videos";
-import toast from "react-hot-toast";
+import usePublicCourseDetail from "../../hooks/api/usePublicCourseDetail";
 import {
   FaArrowLeft,
   FaUser,
@@ -16,51 +14,28 @@ import { MdPublic } from "react-icons/md";
 const PublicCourseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [course, setCourse] = useState(null);
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchCourseDetails();
-  }, [id]);
-
-  const fetchCourseDetails = async () => {
-    try {
-      setLoading(true);
-      const courseRes = await courseService.getPublicCourse(id);
-      setCourse(courseRes.data.data.course);
-
-      const videosRes = await videoServices.getPublicVideos(id);
-      setVideos(videosRes.data.data.videos);
-    } catch (error) {
-      toast.error("Failed to load course details");
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    course,
+    videos,
+    loading,
+    cloneCourse,
+    formatDuration,
+    totalDuration,
+    videoCount,
+    hasVideos,
+    courseNotFound,
+  } = usePublicCourseDetail(id);
 
   const handleClone = async () => {
-    try {
-      await courseService.clonePublicCourse(id);
-      toast.success("Course cloned successfully!");
+    const result = await cloneCourse();
+    if (result.success) {
       navigate("/dashboard");
-    } catch (error) {
-      toast.error("Login First");
     }
   };
 
-  const formatDuration = (duration) => {
-    if (!duration) return "";
-    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-    if (!match) return "";
-    const hours = (match[1] || "").replace("H", "");
-    const minutes = (match[2] || "").replace("M", "");
-    const seconds = (match[3] || "").replace("S", "");
-
-    if (hours)
-      return `${hours}:${minutes.padStart(2, "0")}:${seconds.padStart(2, "0")}`;
-    return `${minutes || "0"}:${seconds.padStart(2, "0")}`;
+  const handleBack = () => {
+    navigate("/public-courses");
   };
 
   if (loading) {
@@ -81,7 +56,7 @@ const PublicCourseDetail = () => {
     );
   }
 
-  if (!course) {
+  if (courseNotFound) {
     return (
       <div
         className="min-h-screen flex items-center justify-center p-4"
@@ -103,7 +78,7 @@ const PublicCourseDetail = () => {
             This course may have been removed or made private
           </p>
           <button
-            onClick={() => navigate("/public-courses")}
+            onClick={handleBack}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
             style={{
               background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
@@ -134,7 +109,7 @@ const PublicCourseDetail = () => {
       <div className="max-w-5xl mx-auto">
         {/* Back Button */}
         <button
-          onClick={() => navigate("/public-courses")}
+          onClick={handleBack}
           className="inline-flex items-center gap-2 mb-6 text-sm md:text-base font-semibold transition-all hover:gap-3"
           style={{ color: "#3b82f6" }}
         >
@@ -177,12 +152,16 @@ const PublicCourseDetail = () => {
             <span className="flex items-center gap-2">
               <FaUser className="w-4 h-4" />
               <span className="font-medium">
-                {course.creator?.username || "Unknown"}
+                {course.creatorUsername || "Unknown"}
               </span>
             </span>
             <span className="flex items-center gap-2">
               <FaVideo className="w-4 h-4" />
-              <span className="font-medium">{videos.length} videos</span>
+              <span className="font-medium">{videoCount} videos</span>
+            </span>
+            <span className="flex items-center gap-2">
+              <FaClock className="w-4 h-4" />
+              <span className="font-medium">{totalDuration}</span>
             </span>
             <span className="flex items-center gap-2">
               <FaEye className="w-4 h-4" />
@@ -235,7 +214,7 @@ const PublicCourseDetail = () => {
             Course Content
           </h2>
 
-          {videos.length === 0 ? (
+          {!hasVideos ? (
             <div className="text-center py-12">
               <div
                 className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"

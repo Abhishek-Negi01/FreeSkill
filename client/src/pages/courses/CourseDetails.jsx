@@ -1,31 +1,71 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { courseService } from "../../api/services/courses";
-import { videoServices } from "../../api/services/videos";
+import { useCoursesContext } from "../../context/CoursesContext/CoursesProvider";
+import { useVideosContext } from "../../context/VideosContext/VideosProvider";
+import useVideoPlayer from "../../hooks/ui/useVideoPlayer";
+import useVideoReorder from "../../hooks/ui/useVideoReorder";
 import YouTubeSearch from "../../components/YouTubeSearch";
-import toast from "react-hot-toast";
 import ImportVideo from "../../components/ImportVideo";
 import SmartSearch from "../../components/SmartSearch";
-import { youtubeServices } from "../../api/services/youtube.js";
+import toast from "react-hot-toast";
 import {
   FaPlay,
   FaTrash,
   FaCheckCircle,
-  FaClock,
   FaEyeSlash,
   FaEye,
+  FaClock,
+  FaUser,
+  FaCalendar,
+  FaGraduationCap,
+  FaChartLine,
+  FaListOl,
+  FaExpand,
+  FaCompress,
 } from "react-icons/fa";
+import "./style/course.scss";
 
 const CourseDetails = () => {
   const { id } = useParams();
+  const location = useLocation();
   const [course, setCourse] = useState(null);
-  const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentVideo, setCurrentVideo] = useState(null);
-  const [reorderMode, setReorderMode] = useState(false);
-  const [draggedVideo, setDraggedVideo] = useState(null);
-  const [showVideoPlayer, setShowVideoPlayer] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Use contexts
+  const { courses } = useCoursesContext();
+  const {
+    videos,
+    loading: videosLoading,
+    setCurrentCourseId,
+    addVideo,
+    deleteVideo,
+    markComplete,
+    importVideo,
+    importPlaylist,
+    fetchVideos,
+    reorderVideos,
+  } = useVideosContext();
+
+  // Use custom hooks
+  const {
+    currentVideo,
+    setCurrentVideo,
+    showVideoPlayer,
+    setShowVideoPlayer,
+    handleVideoDeleted,
+  } = useVideoPlayer(videos, location);
+
+  const {
+    reorderMode,
+    setReorderMode,
+    draggedVideo,
+    handleDragStart,
+    handleDragOver,
+    handleDrop,
+  } = useVideoReorder();
+
+  // Calculate progress and stats
   const progress =
     videos.length === 0
       ? 0
@@ -33,189 +73,101 @@ const CourseDetails = () => {
           (videos.filter((v) => v.isCompleted).length / videos.length) * 100,
         );
 
-  const location = useLocation();
-
-  const fetchVideos = async () => {
-    try {
-      const res = await videoServices.getAll(id);
-      setVideos(res.data.data.videos);
-
-      const targetVideoId = location.state?.videoId;
-      if (targetVideoId) {
-        const targetVideo = res.data.data.videos.find(
-          (v) => v._id === targetVideoId,
-        );
-        setCurrentVideo(targetVideo || res.data.data.videos[0]);
-      } else if (res.data.data.videos.length > 0 && !currentVideo) {
-        setCurrentVideo(res.data.data.videos[0]);
-      }
-    } catch (error) {
-      toast.error("Failed to load videos");
-      console.log(error);
+  const completedVideos = videos.filter((v) => v.isCompleted).length;
+  const totalDuration = videos.reduce((acc, video) => {
+    const match = video.duration?.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    if (match) {
+      const hours = parseInt((match[1] || "").replace("H", "")) || 0;
+      const minutes = parseInt((match[2] || "").replace("M", "")) || 0;
+      const seconds = parseInt((match[3] || "").replace("S", "")) || 0;
+      return acc + hours * 3600 + minutes * 60 + seconds;
     }
+    return acc;
+  }, 0);
+
+  const formatTotalDuration = (totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
   };
 
+  // Load course and set current course ID for videos
   useEffect(() => {
-    courseService
-      .getById(id)
-      .then((res) => {
-        setCourse(res.data.data.course);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
-        setLoading(false);
-      });
-    fetchVideos();
-  }, [id]);
+    const foundCourse = courses.find((c) => c._id === id);
+    if (foundCourse) {
+      setCourse(foundCourse);
+      setLoading(false);
+    } else if (courses.length > 0) {
+      setLoading(false);
+    }
+    setCurrentCourseId(id);
+  }, [id, courses, setCurrentCourseId]);
 
+  // Handle video actions
   const handleAddVideo = async (video) => {
-    try {
-      const res = await videoServices.addVideo(id, {
-        videoId: video.videoId,
-        title: video.title,
-        thumbnail: video.thumbnail,
-        channelTitle: video.channelTitle,
-        duration: video.duration,
-      });
+    const result = await addVideo({
+      videoId: video.videoId,
+      title: video.title,
+      thumbnail: video.thumbnail,
+      channelTitle: video.channelTitle,
+      duration: video.duration,
+    });
 
-      const newVideo = res.data.data.video;
-      setVideos([...videos, newVideo]);
-      if (!currentVideo) {
-        setCurrentVideo(newVideo);
-      }
-      toast.success(res?.data?.message || "Video added successfully!");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to add video");
-      console.log(error);
+    if (result.success && !currentVideo) {
+      setCurrentVideo(result.video);
     }
   };
 
   const handleVideoComplete = async (videoId, currentStatus) => {
-    try {
-      if (currentStatus) {
-        return;
-      }
-
-      const res = await videoServices.markCompleted(videoId);
-      setVideos(
-        videos.map((v) =>
-          v._id === videoId ? { ...v, isCompleted: true } : v,
-        ),
-      );
-
-      toast.success(res?.data?.message || "Video marked as complete!");
-    } catch (error) {
-      toast.error("Failed to mark video as complete");
-      console.log(error);
-    }
+    await markComplete(videoId);
   };
 
   const handleDeleteVideo = async (videoId) => {
-    try {
-      if (!confirm("Delete this video?")) {
-        return;
-      }
-
-      const res = await videoServices.deleteVideo(videoId);
-      const updatedVideos = videos.filter((v) => v._id !== videoId);
-      setVideos(updatedVideos);
-
-      if (currentVideo?._id === videoId) {
-        setCurrentVideo(updatedVideos[0] || null);
-      }
-
-      toast.success(res?.data?.message || "Video deleted successfully!");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to delete video");
-      console.log(error);
+    if (!window.confirm("Delete this video?")) return;
+    const result = await deleteVideo(videoId);
+    if (result.success) {
+      handleVideoDeleted(videoId);
     }
   };
 
-  const formatDuration = (duration) => {
-    if (!duration) {
-      return "";
-    }
+  const handleImportPlaylist = async (playlistUrl) => {
+    await importPlaylist(playlistUrl);
+  };
 
+  const handleReorderVideos = async (videoOrder, newVideos) => {
+    await reorderVideos(videoOrder);
+  };
+
+  // Format duration helper
+  const formatDuration = (duration) => {
+    if (!duration) return "";
     const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-    if (!match) {
-      return "";
-    }
+    if (!match) return "";
     const hours = (match[1] || "").replace("H", "");
     const minutes = (match[2] || "").replace("M", "");
     const seconds = (match[3] || "").replace("S", "");
-
     if (hours) {
       return `${hours}:${minutes.padStart(2, "0")}:${seconds.padStart(2, "0")}`;
     }
     return `${minutes || "0"}:${seconds.padStart(2, "0")}`;
   };
 
-  const handleImportPlaylist = async (playlistUrl) => {
-    try {
-      const response = await youtubeServices.importPlaylist(id, playlistUrl);
-      const data = response.data.data;
-      toast.success(
-        `Imported ${data.imported} videos${data.skipped > 0 ? `, skipped ${data.skipped}` : ""}`,
-      );
-      fetchVideos();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to import playlist");
-    }
-  };
-
-  const handleDragStart = (e, video) => {
-    setDraggedVideo(video);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = async (e, targetVideo) => {
-    e.preventDefault();
-
-    if (!draggedVideo || draggedVideo._id === targetVideo._id) {
-      setDraggedVideo(null);
-      return;
-    }
-
-    const draggedIndex = videos.findIndex((v) => v._id === draggedVideo._id);
-    const targetIndex = videos.findIndex((v) => v._id === targetVideo._id);
-
-    const newVideos = [...videos];
-    newVideos.splice(draggedIndex, 1);
-    newVideos.splice(targetIndex, 0, draggedVideo);
-
-    const videoOrder = newVideos.map((v) => v._id);
-
-    try {
-      await videoServices.reorderVideos(id, videoOrder);
-      setVideos(newVideos);
-      toast.success("Videos reordered successfully!");
-    } catch (error) {
-      toast.error("Failed to reorder videos");
-      console.log(error);
-    }
-
-    setDraggedVideo(null);
-  };
-
   if (loading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{
-          background: "linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)",
-        }}
-      >
-        <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-sm font-medium" style={{ color: "#6b7280" }}>
-            Loading course...
-          </p>
+      <div className="dashboard__page">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-6 spinner"></div>
+            <div className="glass-effect rounded-2xl p-8">
+              <h3 className="text-xl font-bold text-primary mb-2">
+                Loading Course
+              </h3>
+              <p className="text-secondary">
+                Preparing your learning experience...
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -223,416 +175,464 @@ const CourseDetails = () => {
 
   if (!course) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center p-4"
-        style={{
-          background: "linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)",
-        }}
-      >
-        <div
-          className="bg-white rounded-xl shadow-lg p-8 text-center"
-          style={{ border: "1px solid #e5e7eb" }}
-        >
-          <h3 className="text-xl font-bold mb-2" style={{ color: "#374151" }}>
-            Course not found
-          </h3>
-          <p style={{ color: "#6b7280" }}>This course may have been deleted</p>
+      <div className="dashboard__page">
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="glass-effect rounded-2xl p-12 text-center max-w-md">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/20 flex items-center justify-center">
+              <FaGraduationCap className="w-10 h-10 text-red-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-primary mb-3">
+              Course Not Found
+            </h3>
+            <p className="text-secondary mb-6">
+              This course may have been deleted or you don't have access to it.
+            </p>
+            <Link
+              to="/dashboard"
+              className="btn btn--primary inline-flex items-center gap-2"
+            >
+              <FaChartLine className="w-4 h-4" />
+              Back to Dashboard
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className="min-h-screen p-3 sm:p-4 md:p-6"
-      style={{
-        background: "linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)",
-      }}
-    >
-      <div className="max-w-7xl mx-auto">
-        {/* Course Header */}
-        <div className="bg-white rounded-xl shadow p-4 md:p-6 mb-4 md:mb-6 animate-fadeIn border border-gray-100">
-          <div className="mb-4">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-1 leading-tight">
-              {course.title}
-            </h1>
-            <p className="text-sm md:text-base text-gray-500 leading-relaxed">
-              {course.description}
-            </p>
+    <div className="dashboard__page">
+      <div className="max-w-[1600px] mx-auto p-4 lg:p-6">
+        {/* Enhanced Course Header */}
+        <div className="bg-card rounded-2xl shadow-2xl p-6 lg:p-8 mb-6 animate-fadeInUp border border-light relative overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-cyan-500/10"></div>
+            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-500/5 to-transparent rounded-full blur-3xl"></div>
           </div>
 
-          {/* Progress Bar */}
-          <div
-            className="mb-4 p-3 md:p-4 rounded-lg"
-            style={{ background: "#f0fdf4", border: "1px solid #86efac" }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs sm:text-sm font-semibold text-gray-600">
-                {videos.filter((v) => v.isCompleted).length} / {videos.length}{" "}
-                videos completed
-              </span>
-              <span className="text-sm sm:text-base font-black text-green-600">
-                {progress}%
-              </span>
-            </div>
-            <div className="w-full h-2.5 rounded-full overflow-hidden bg-green-100">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${progress}%`,
-                  background:
-                    "linear-gradient(90deg, #10b981 0%, #059669 100%)",
-                }}
-              />
-            </div>
-          </div>
+          <div className="relative z-10">
+            {/* Course Title & Meta */}
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 mb-8">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
+                    <FaGraduationCap className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl lg:text-4xl font-black text-primary leading-tight">
+                      {course.title}
+                    </h1>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-muted">
+                      <span className="flex items-center gap-1">
+                        <FaUser className="w-3 h-3" />
+                        Created by You
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <FaCalendar className="w-3 h-3" />
+                        {new Date(
+                          course.createdAt || Date.now(),
+                        ).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-lg text-secondary leading-relaxed max-w-3xl">
+                  {course.description}
+                </p>
+              </div>
 
-          {/* Search & Import */}
-          <div className="space-y-3">
-            <YouTubeSearch onAddVideo={handleAddVideo} />
-            <ImportVideo courseId={id} onVideoImported={fetchVideos} />
-            <SmartSearch
-              onAddVideo={handleAddVideo}
-              onImportPlaylist={handleImportPlaylist}
-            />
+              {/* Course Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 lg:min-w-[200px]">
+                <div className="bg-card-hover rounded-xl p-4 border border-medium">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg gradient-info flex items-center justify-center">
+                      <FaListOl className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-black text-primary">
+                        {videos.length}
+                      </p>
+                      <p className="text-xs text-muted font-medium">
+                        Total Videos
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-card-hover rounded-xl p-4 border border-medium">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg gradient-success flex items-center justify-center">
+                      <FaClock className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-black text-primary">
+                        {formatTotalDuration(totalDuration)}
+                      </p>
+                      <p className="text-xs text-muted font-medium">Duration</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Progress Section */}
+            <div className="bg-card-hover rounded-2xl p-6 mb-8 border border-medium">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg gradient-success flex items-center justify-center">
+                    <FaChartLine className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="text-lg font-bold text-primary">
+                    Learning Progress
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-black text-gradient-primary">
+                    {progress}%
+                  </p>
+                  <p className="text-sm text-muted">
+                    {completedVideos} of {videos.length} completed
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="w-full h-4 rounded-full bg-gray-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full gradient-success transition-all duration-1000 ease-out relative"
+                    style={{ width: `${progress}%` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="flex justify-between text-xs text-muted mt-2">
+                  <span>Started</span>
+                  <span className="font-medium">
+                    {progress === 100 ? "Completed! 🎉" : "In Progress"}
+                  </span>
+                  <span>Complete</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Search & Import Tools */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+                <div className="w-6 h-6 rounded gradient-primary flex items-center justify-center">
+                  <FaPlay className="w-3 h-3 text-white" />
+                </div>
+                Add Content
+              </h3>
+              <div className="grid gap-4">
+                <YouTubeSearch onAddVideo={handleAddVideo} />
+                <ImportVideo />
+                <SmartSearch
+                  onAddVideo={handleAddVideo}
+                  onImportPlaylist={handleImportPlaylist}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Player + Playlist Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-          {/* Video Player */}
-          <div className="lg:col-span-2">
+        {/* Enhanced Player + Playlist Layout */}
+        <div
+          className={`grid gap-6 transition-all duration-500 ${
+            isFullscreen ? "grid-cols-1" : "grid-cols-1 xl:grid-cols-3"
+          }`}
+        >
+          {/* Enhanced Video Player */}
+          <div className={`${isFullscreen ? "col-span-1" : "xl:col-span-2"}`}>
             {showVideoPlayer && currentVideo ? (
-              <div className="bg-white rounded-xl shadow p-3 sm:p-4 md:p-5 animate-fadeIn border border-gray-100">
-                <div className="flex justify-end mb-2">
-                  <button
-                    onClick={() => setShowVideoPlayer(false)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs text-white shadow transition-all duration-200 hover:-translate-y-0.5"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                    }}
-                  >
-                    <FaEyeSlash className="w-3.5 h-3.5" />
-                    Hide
-                  </button>
+              <div className="bg-card rounded-2xl shadow-2xl overflow-hidden animate-fadeInUp border border-light">
+                {/* Player Header */}
+                <div className="p-4 border-b border-medium bg-card-hover">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+                        <FaPlay className="w-4 h-4 text-white" />
+                      </div>
+                      <h3 className="font-bold text-primary">Now Playing</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        className="btn btn--gray btn--sm"
+                        title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+                      >
+                        {isFullscreen ? <FaCompress /> : <FaExpand />}
+                      </button>
+                      <button
+                        onClick={() => setShowVideoPlayer(false)}
+                        className="btn btn--gray btn--sm"
+                      >
+                        <FaEyeSlash /> Hide
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="aspect-video mb-3 rounded-lg overflow-hidden bg-black">
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    src={`https://www.youtube.com/embed/${currentVideo.videoId}`}
-                    title={currentVideo.title}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+
+                {/* Video Player */}
+                <div className="relative">
+                  <div className="aspect-video bg-black">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      src={`https://www.youtube.com/embed/${currentVideo.videoId}`}
+                      title={currentVideo.title}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                    />
+                  </div>
                 </div>
-                <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 mb-1 leading-snug">
-                  {currentVideo.title}
-                </h2>
-                <p className="text-xs sm:text-sm text-gray-500 mb-3">
-                  {currentVideo.channelTitle}
-                </p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Link
-                    to={`/ask?videoId=${currentVideo._id}`}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white shadow transition-all duration-200 hover:-translate-y-0.5"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                    }}
-                  >
-                    Ask Question
-                  </Link>
-                  <Link
-                    to={`/questions/video/${currentVideo._id}`}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm text-white shadow transition-all duration-200 hover:-translate-y-0.5"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
-                    }}
-                  >
-                    View Questions
-                  </Link>
+
+                {/* Video Info */}
+                <div className="p-6">
+                  <h2 className="text-xl font-bold text-primary mb-2 leading-tight">
+                    {currentVideo.title}
+                  </h2>
+                  <p className="text-secondary mb-4 flex items-center gap-2">
+                    <FaUser className="w-4 h-4" />
+                    {currentVideo.channelTitle}
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Link
+                      to={`/ask?videoId=${currentVideo._id}`}
+                      className="btn btn--primary flex-1 justify-center"
+                    >
+                      Ask Question
+                    </Link>
+                    <Link
+                      to={`/questions/video/${currentVideo._id}`}
+                      className="btn btn--gray flex-1 justify-center"
+                    >
+                      View Questions
+                    </Link>
+                  </div>
                 </div>
               </div>
             ) : !showVideoPlayer && currentVideo ? (
-              <div className="bg-white rounded-xl shadow p-8 text-center animate-fadeIn border border-gray-100">
-                <div
-                  className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
-                  }}
-                >
-                  <FaPlay className="w-8 h-8 text-blue-500" />
+              <div className="bg-card rounded-2xl shadow-2xl p-12 text-center animate-fadeInUp border border-light">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-2xl gradient-primary flex items-center justify-center">
+                  <FaPlay className="w-10 h-10 text-white" />
                 </div>
-                <h3 className="text-base font-bold mb-1 text-gray-700">
+                <h3 className="text-xl font-bold text-primary mb-3">
                   Video Hidden
                 </h3>
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-secondary mb-6">
                   Click below to show the video player
                 </p>
                 <button
                   onClick={() => setShowVideoPlayer(true)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm text-white shadow transition-all duration-200 hover:-translate-y-0.5"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                  }}
+                  className="btn btn--primary"
                 >
-                  <FaEye className="w-4 h-4" /> Show Video
+                  <FaEye className="mr-2" /> Show Video
                 </button>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow p-8 text-center border border-gray-100">
-                <div
-                  className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
-                  }}
-                >
-                  <FaPlay className="w-8 h-8 text-blue-500" />
+              <div className="bg-card rounded-2xl shadow-2xl p-12 text-center border border-light">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-gray-600/20 to-gray-700/20 flex items-center justify-center">
+                  <FaPlay className="w-10 h-10 text-gray-400" />
                 </div>
-                <h3 className="text-base font-bold mb-1 text-gray-700">
-                  No videos yet
+                <h3 className="text-xl font-bold text-primary mb-3">
+                  No Video Selected
                 </h3>
-                <p className="text-sm text-gray-500">
-                  Add videos using the search above
+                <p className="text-secondary">
+                  Choose a video from the playlist or add new content above
                 </p>
               </div>
             )}
           </div>
 
-          {/* Playlist */}
-          <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-100">
-            {/* Header */}
-            <div className="sticky top-0 z-10 p-3 sm:p-4 border-b border-gray-100 bg-white">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm sm:text-base font-bold text-gray-800 flex items-center gap-2">
-                  <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                    }}
-                  >
-                    <FaPlay className="w-3 h-3 text-white" />
-                  </div>
-                  Playlist
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="px-2.5 py-1 rounded-full text-xs font-bold text-blue-700"
-                    style={{ background: "#dbeafe" }}
-                  >
-                    {videos.length} {videos.length === 1 ? "video" : "videos"}
-                  </span>
-                  {videos.length > 1 && (
-                    <button
-                      onClick={() => setReorderMode(!reorderMode)}
-                      className="px-2.5 py-1 rounded-full text-xs font-bold text-white transition-all duration-200"
-                      style={{
-                        background: reorderMode
-                          ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
-                          : "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-                      }}
-                    >
-                      {reorderMode ? "Done" : "Reorder"}
-                    </button>
-                  )}
-                </div>
-              </div>
-              {videos.length > 0 && (
-                <div>
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>
-                      {videos.filter((v) => v.isCompleted).length} completed
-                    </span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full overflow-hidden bg-gray-200">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${progress}%`,
-                        background:
-                          "linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)",
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Video List */}
-            <div
-              className="p-3"
-              style={{
-                maxHeight: "calc(100vh - 260px)",
-                minHeight: "300px",
-                overflowY: "auto",
-              }}
-            >
-              {videos.length === 0 ? (
-                <div className="text-center py-10">
-                  <FaPlay className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-gray-500">
-                    No videos yet
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Add videos using the search above
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {videos.map((video, index) => (
-                    <div
-                      key={video._id}
-                      draggable={reorderMode}
-                      onDragStart={(e) => handleDragStart(e, video)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, video)}
-                      className="border-2 rounded-xl p-2.5 transition-all duration-200"
-                      style={{
-                        background:
-                          currentVideo?._id === video._id
-                            ? "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)"
-                            : "white",
-                        borderColor:
-                          currentVideo?._id === video._id
-                            ? "#3b82f6"
-                            : draggedVideo?._id === video._id
-                              ? "#8b5cf6"
-                              : "#e5e7eb",
-                        cursor: reorderMode ? "move" : "pointer",
-                        opacity: draggedVideo?._id === video._id ? 0.5 : 1,
-                      }}
-                      onClick={() => !reorderMode && setCurrentVideo(video)}
-                      onMouseEnter={(e) => {
-                        if (currentVideo?._id !== video._id && !reorderMode)
-                          e.currentTarget.style.transform = "translateX(3px)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "translateX(0)";
-                      }}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div
-                          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
-                          style={{
-                            background:
-                              currentVideo?._id === video._id
-                                ? "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)"
-                                : "#f3f4f6",
-                            color:
-                              currentVideo?._id === video._id
-                                ? "white"
-                                : "#6b7280",
-                          }}
-                        >
-                          {index + 1}
-                        </div>
-                        <div className="relative shrink-0 w-24 sm:w-28 group overflow-hidden rounded-lg">
-                          <img
-                            src={
-                              video.thumbnail ||
-                              `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`
-                            }
-                            alt={video.title}
-                            className="w-full h-14 object-cover transition-transform duration-300 group-hover:scale-110"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`;
-                            }}
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-40 transition-opacity duration-300 flex items-center justify-center">
-                            <FaPlay className="w-5 h-5 text-white scale-0 group-hover:scale-100 transition-transform duration-300" />
-                          </div>
-                          <span
-                            className="absolute bottom-1 right-1 px-1 py-0.5 rounded text-xs font-semibold"
-                            style={{
-                              background: "rgba(0,0,0,0.85)",
-                              color: "white",
-                            }}
-                          >
-                            {formatDuration(video.duration)}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3
-                            className="font-semibold text-xs line-clamp-2 mb-0.5"
-                            style={{
-                              color:
-                                currentVideo?._id === video._id
-                                  ? "#1e40af"
-                                  : "#1f2937",
-                            }}
-                          >
-                            {video.title}
-                          </h3>
-                          <p className="text-xs truncate text-gray-500">
-                            {video.channelTitle}
-                          </p>
-                          {video.isCompleted && (
-                            <span
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold mt-1"
-                              style={{
-                                background: "#d1fae5",
-                                color: "#065f46",
-                              }}
-                            >
-                              <FaCheckCircle className="w-2.5 h-2.5" /> Done
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
-                        <label
-                          className="flex items-center gap-1.5 cursor-pointer group"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={video.isCompleted}
-                            onChange={() =>
-                              handleVideoComplete(video._id, video.isCompleted)
-                            }
-                            className="w-4 h-4 rounded border-2 border-gray-300 cursor-pointer appearance-none checked:bg-green-500 checked:border-green-500"
-                            style={{
-                              backgroundImage: video.isCompleted
-                                ? "url(\"data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e\")"
-                                : "none",
-                            }}
-                          />
-                          <span className="text-xs text-gray-500 group-hover:text-green-600 transition-colors">
-                            Complete
-                          </span>
-                        </label>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteVideo(video._id);
-                          }}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-500 transition-all hover:bg-red-50"
-                        >
-                          <FaTrash className="w-3 h-3" /> Delete
-                        </button>
-                      </div>
+          {/* Enhanced Playlist */}
+          {!isFullscreen && (
+            <div className="bg-card rounded-2xl shadow-2xl overflow-hidden border border-light">
+              {/* Playlist Header */}
+              <div className="sticky top-0 z-20 p-4 border-b border-medium bg-card-hover backdrop-blur-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
+                      <FaListOl className="w-4 h-4 text-white" />
                     </div>
-                  ))}
+                    <h2 className="font-bold text-primary">Course Playlist</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                      {videos.length} {videos.length === 1 ? "video" : "videos"}
+                    </span>
+                    {videos.length > 1 && (
+                      <button
+                        onClick={() => setReorderMode(!reorderMode)}
+                        className={`btn btn--sm ${
+                          reorderMode ? "btn--success" : "btn--info"
+                        }`}
+                      >
+                        {reorderMode ? "Done" : "Reorder"}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )}
+
+                {videos.length > 0 && (
+                  <div>
+                    <div className="flex justify-between text-xs text-muted mb-2">
+                      <span>{completedVideos} completed</span>
+                      <span>{progress}% progress</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
+                      <div
+                        className="h-full rounded-full gradient-primary transition-all duration-500"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Video List */}
+              <div
+                className="dark-scrollbar"
+                style={{
+                  maxHeight: "calc(100vh - 300px)",
+                  minHeight: "400px",
+                  overflowY: "auto",
+                }}
+              >
+                {videos.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gradient-to-br from-gray-600/20 to-gray-700/20 flex items-center justify-center">
+                      <FaPlay className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h3 className="font-bold text-primary mb-2">
+                      No Videos Yet
+                    </h3>
+                    <p className="text-sm text-muted">
+                      Add videos using the tools above to start building your
+                      course
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 space-y-3">
+                    {videos.map((video, index) => (
+                      <div
+                        key={video._id}
+                        draggable={reorderMode}
+                        onDragStart={(e) => handleDragStart(e, video)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) =>
+                          handleDrop(e, video, videos, handleReorderVideos)
+                        }
+                        className={`group relative rounded-xl p-3 transition-all duration-300 cursor-pointer border-2 ${
+                          currentVideo?._id === video._id
+                            ? "neon-border bg-blue-500/10"
+                            : draggedVideo?._id === video._id
+                              ? "border-purple-500 bg-purple-500/10"
+                              : "border-medium bg-card-hover hover:border-light hover:shadow-lg"
+                        }`}
+                        style={{
+                          opacity: draggedVideo?._id === video._id ? 0.5 : 1,
+                        }}
+                        onClick={() => !reorderMode && setCurrentVideo(video)}
+                      >
+                        {/* Video Item */}
+                        <div className="flex items-start gap-3">
+                          {/* Index */}
+                          <div
+                            className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                              currentVideo?._id === video._id
+                                ? "gradient-primary text-white"
+                                : "bg-gray-700 text-gray-300"
+                            }`}
+                          >
+                            {index + 1}
+                          </div>
+
+                          {/* Thumbnail */}
+                          <div className="relative shrink-0 w-28 h-16 rounded-lg overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                            <img
+                              src={
+                                video.thumbnail ||
+                                `https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`
+                              }
+                              alt={video.title}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                              <FaPlay className="w-6 h-6 text-white" />
+                            </div>
+                            <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold bg-black/80 text-white">
+                              {formatDuration(video.duration)}
+                            </span>
+                          </div>
+
+                          {/* Video Info */}
+                          <div className="flex-1 min-w-0">
+                            <h3
+                              className={`font-semibold text-sm line-clamp-2 mb-1 ${
+                                currentVideo?._id === video._id
+                                  ? "text-blue-400"
+                                  : "text-primary"
+                              }`}
+                            >
+                              {video.title}
+                            </h3>
+                            <p className="text-xs text-muted truncate mb-2">
+                              {video.channelTitle}
+                            </p>
+                            {video.isCompleted && (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                                <FaCheckCircle className="w-3 h-3" /> Completed
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-medium">
+                          <label
+                            className="flex items-center gap-2 cursor-pointer group/checkbox"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={video.isCompleted}
+                              onChange={() =>
+                                handleVideoComplete(
+                                  video._id,
+                                  video.isCompleted,
+                                )
+                              }
+                              className="w-4 h-4 rounded border-2 border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-2"
+                            />
+                            <span className="text-xs text-muted group-hover/checkbox:text-green-400 transition-colors font-medium">
+                              Mark Complete
+                            </span>
+                          </label>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteVideo(video._id);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all"
+                          >
+                            <FaTrash className="w-3 h-3" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
-  
 };
 
 export default CourseDetails;

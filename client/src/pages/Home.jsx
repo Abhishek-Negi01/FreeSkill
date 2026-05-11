@@ -1,15 +1,16 @@
-import React, { useContext, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { Link, useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
+
 import { FaBook, FaChartLine, FaBullseye, FaRocket } from "react-icons/fa";
 
 const Home = () => {
-  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const { isSignedIn } = useUser();
 
   useEffect(() => {
-    if (user) navigate("/dashboard");
-  }, [user, navigate]);
+    if (isSignedIn) navigate("/dashboard");
+  }, [isSignedIn, navigate]);
 
   const features = [
     {

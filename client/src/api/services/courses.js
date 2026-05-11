@@ -12,4 +12,5 @@ export const courseService = {
     api.get("/courses/public", { params: { page, limit, search } }),
   getPublicCourse: (id) => api.get(`/courses/public/${id}`),
   clonePublicCourse: (id) => api.post(`/courses/${id}/clone`),
+  getStatistics: (courseId) => api.get(`/courses/${courseId}/statistics`),
 };

@@ -1,11 +1,10 @@
-import { useContext } from "react";
-import { AuthContext } from "../../context/AuthContext";
+import { useUser } from "@clerk/clerk-react";
 import { Navigate } from "react-router-dom";
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading } = useContext(AuthContext);
+  const { isLoaded, isSignedIn } = useUser();
 
-  if (loading) {
+  if (!isLoaded) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -32,5 +31,5 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  return user ? children : <Navigate to="/login" replace />;
+  return isSignedIn ? children : <Navigate to="/login" replace />;
 }

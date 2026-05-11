@@ -1,6 +1,6 @@
-import React, { useContext, useState } from "react";
-import { AuthContext } from "../../context/AuthContext";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import NotificationBell from "./NotificationBell";
 import { HiMenu, HiX } from "react-icons/hi";
 import {
@@ -14,12 +14,13 @@ import {
 } from "react-icons/fa";
 
 const Navbar = () => {
-  const { user, logout } = useContext(AuthContext);
+  const { isSignedIn } = useUser();
+  const { signOut } = useClerk();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
+    await signOut();
     navigate("/");
     setMobileMenuOpen(false);
   };
@@ -35,24 +36,16 @@ const Navbar = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
-          {/* Logo - Enhanced */}
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
             <div
               className="relative p-2.5 md:p-3 rounded-2xl transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
               style={{
                 background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-                boxShadow:
-                  "0 8px 25px rgba(59, 130, 246, 0.5), 0 0 40px rgba(139, 92, 246, 0.3)",
+                boxShadow: "0 8px 25px rgba(59, 130, 246, 0.5)",
               }}
             >
-              <FaGraduationCap className="w-6 h-6 md:w-8 md:h-8 text-white drop-shadow-lg" />
-              <div
-                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%)",
-                }}
-              />
+              <FaGraduationCap className="w-6 h-6 md:w-8 md:h-8 text-white" />
             </div>
             <div className="flex flex-col">
               <span
@@ -62,7 +55,6 @@ const Navbar = () => {
                     "linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #c084fc 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
-                  filter: "drop-shadow(0 2px 8px rgba(96, 165, 250, 0.4))",
                 }}
               >
                 FreeSkill
@@ -75,52 +67,49 @@ const Navbar = () => {
 
           {/* Desktop Menu */}
           <div className="hidden lg:flex items-center gap-1 xl:gap-2">
-            {user ? (
+            {isSignedIn ? (
               <>
                 <Link
                   to="/dashboard"
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105 hover:shadow-lg"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105"
                 >
                   <FaTh className="w-4 h-4" />
                   <span>Dashboard</span>
                 </Link>
                 <Link
                   to="/questions"
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105 hover:shadow-lg"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105"
                 >
                   <FaUsers className="w-4 h-4" />
                   <span>Community</span>
                 </Link>
                 <Link
                   to="/public-courses"
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105 hover:shadow-lg"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105"
                 >
                   <FaGlobe className="w-4 h-4" />
                   <span>Browse</span>
                 </Link>
                 <Link
                   to="/bookmarks"
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105 hover:shadow-lg"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105"
                 >
                   <FaBookmark className="w-4 h-4" />
                   <span>Bookmarks</span>
                 </Link>
                 <Link
                   to="/profile"
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105 hover:shadow-lg"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 hover:bg-white/10 hover:scale-105"
                 >
                   <FaUser className="w-4 h-4" />
                   <span>Profile</span>
                 </Link>
-
                 <div className="ml-2">
                   <NotificationBell />
                 </div>
-
-                {/* Enhanced Logout Button */}
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 hover:shadow-2xl ml-3"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 ml-3"
                   style={{
                     background:
                       "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
@@ -141,8 +130,8 @@ const Navbar = () => {
                   <span>Browse Courses</span>
                 </Link>
                 <Link
-                  to="/login"
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 hover:shadow-2xl ml-3"
+                  to="/"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 ml-3"
                   style={{
                     background:
                       "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
@@ -150,7 +139,7 @@ const Navbar = () => {
                   }}
                 >
                   <FaUser className="w-4 h-4" />
-                  Login
+                  Home
                 </Link>
               </>
             )}
@@ -159,12 +148,12 @@ const Navbar = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2.5 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-110"
+            className="lg:hidden p-2.5 hover:bg-white/10 rounded-xl transition-all duration-300"
           >
             {mobileMenuOpen ? (
-              <HiX className="w-6 h-6 md:w-7 md:h-7" />
+              <HiX className="w-6 h-6" />
             ) : (
-              <HiMenu className="w-6 h-6 md:w-7 md:h-7" />
+              <HiMenu className="w-6 h-6" />
             )}
           </button>
         </div>
@@ -172,12 +161,12 @@ const Navbar = () => {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="lg:hidden pb-4 animate-slideDown">
-            {user ? (
+            {isSignedIn ? (
               <div className="flex flex-col gap-2">
                 <Link
                   to="/dashboard"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl transition-all text-sm font-semibold"
+                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl text-sm font-semibold"
                 >
                   <FaTh className="w-4 h-4" />
                   Dashboard
@@ -185,7 +174,7 @@ const Navbar = () => {
                 <Link
                   to="/questions"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl transition-all text-sm font-semibold"
+                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl text-sm font-semibold"
                 >
                   <FaUsers className="w-4 h-4" />
                   Community
@@ -193,7 +182,7 @@ const Navbar = () => {
                 <Link
                   to="/public-courses"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl transition-all text-sm font-semibold"
+                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl text-sm font-semibold"
                 >
                   <FaGlobe className="w-4 h-4" />
                   Browse
@@ -201,7 +190,7 @@ const Navbar = () => {
                 <Link
                   to="/bookmarks"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl transition-all text-sm font-semibold"
+                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl text-sm font-semibold"
                 >
                   <FaBookmark className="w-4 h-4" />
                   Bookmarks
@@ -209,18 +198,17 @@ const Navbar = () => {
                 <Link
                   to="/profile"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl transition-all text-sm font-semibold"
+                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl text-sm font-semibold"
                 >
                   <FaUser className="w-4 h-4" />
                   Profile
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 hover:shadow-2xl mt-3"
+                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm mt-3"
                   style={{
                     background:
                       "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                    boxShadow: "0 4px 15px rgba(239, 68, 68, 0.4)",
                   }}
                 >
                   <FaSignOutAlt className="w-4 h-4" />
@@ -232,7 +220,7 @@ const Navbar = () => {
                 <Link
                   to="/public-courses"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl transition-all text-sm font-semibold"
+                  className="flex items-center gap-3 hover:bg-white/10 px-4 py-3 rounded-xl text-sm font-semibold"
                 >
                   <FaGlobe className="w-4 h-4" />
                   Browse Courses
@@ -240,11 +228,10 @@ const Navbar = () => {
                 <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm"
                   style={{
                     background:
                       "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-                    boxShadow: "0 4px 15px rgba(59, 130, 246, 0.4)",
                   }}
                 >
                   <FaUser className="w-4 h-4" />

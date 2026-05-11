@@ -1,49 +1,37 @@
 import React, { useState } from "react";
-import { youtubeServices } from "../api/services/youtube";
-import toast from "react-hot-toast";
+import { useVideosContext } from "../context/VideosContext/VideosProvider";
+import useToggle from "../hooks/ui/useToggle";
 import { FaYoutube, FaChevronDown, FaChevronUp, FaLink } from "react-icons/fa";
 import { MdPlaylistAdd } from "react-icons/md";
 import { BiImport } from "react-icons/bi";
 
-const ImportVideo = ({ courseId, onVideoImported }) => {
+const ImportVideo = () => {
   const [videoUrl, setVideoUrl] = useState("");
   const [playlistUrl, setPlaylistUrl] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("video"); // "video" | "playlist"
+
+  // Use existing VideosContext instead of direct API calls
+  const { loading, importVideo, importPlaylist } = useVideosContext();
+
+  const { value: open, toggle: toggleOpen } = useToggle(false);
 
   const handleImportVideo = async (e) => {
     e.preventDefault();
-    if (!videoUrl.trim()) return toast.error("Please enter a video URL");
-    setLoading(true);
-    try {
-      const res = await youtubeServices.importVideo(courseId, videoUrl);
-      toast.success(res.data.message || "Video imported!");
+    if (!videoUrl.trim()) return;
+
+    const result = await importVideo(videoUrl);
+    if (result.success) {
       setVideoUrl("");
-      onVideoImported();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to import video");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleImportPlaylist = async (e) => {
     e.preventDefault();
-    if (!playlistUrl.trim()) return toast.error("Please enter a playlist URL");
-    setLoading(true);
-    try {
-      const res = await youtubeServices.importPlaylist(courseId, playlistUrl);
-      const d = res.data.data;
-      toast.success(
-        `Imported ${d.imported} videos${d.skipped > 0 ? `, skipped ${d.skipped}` : ""}`,
-      );
+    if (!playlistUrl.trim()) return;
+
+    const result = await importPlaylist(playlistUrl);
+    if (result.success) {
       setPlaylistUrl("");
-      onVideoImported();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to import playlist");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -52,7 +40,7 @@ const ImportVideo = ({ courseId, onVideoImported }) => {
       {/* Toggle Header */}
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={toggleOpen}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-green-50 transition-colors duration-200"
       >
         <div className="flex items-center gap-2.5">
@@ -129,11 +117,12 @@ const ImportVideo = ({ courseId, onVideoImported }) => {
                   placeholder="https://youtube.com/watch?v=..."
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-red-200 focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent text-sm bg-white"
                   disabled={loading}
+                  required
                 />
               </div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !videoUrl.trim()}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs text-white shadow transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 whitespace-nowrap"
                 style={{
                   background:
@@ -162,11 +151,12 @@ const ImportVideo = ({ courseId, onVideoImported }) => {
                   placeholder="https://youtube.com/playlist?list=..."
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-transparent text-sm bg-white"
                   disabled={loading}
+                  required
                 />
               </div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !playlistUrl.trim()}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs text-white shadow transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 whitespace-nowrap"
                 style={{
                   background:

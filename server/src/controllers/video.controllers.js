@@ -33,23 +33,19 @@ const addVideo = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Course not found or unauthorized");
   }
 
-  try {
-    const video = await Video.create({
-      videoId,
-      title,
-      thumbnail,
-      duration,
-      channelTitle,
-      order,
-      course: courseId,
-    });
+  const video = await Video.create({
+    videoId,
+    title,
+    thumbnail,
+    duration,
+    channelTitle,
+    order,
+    course: courseId,
+  });
 
-    return res
-      .status(201)
-      .json(new ApiResponse(201, { video }, "Video added successfully"));
-  } catch (error) {
-    throw new ApiError(500, "Failed to add video");
-  }
+  return res
+    .status(201)
+    .json(new ApiResponse(201, { video }, "Video added successfully"));
 });
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -169,30 +165,39 @@ const markVideoAsCompleted = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found or unauthorized");
   }
 
-  video.isCompleted = true;
+  video.isCompleted = !video.isCompleted;
   await video.save();
 
+  const status = video.isCompleted ? "completed" : "incomplete";
   return res
     .status(200)
     .json(
-      new ApiResponse(200, { video }, "Video marked as completed successfully"),
+      new ApiResponse(200, { video }, `Video marked as ${status} successfully`),
     );
 });
 
 const reorderVideos = asyncHandler(async (req, res) => {
   const { courseId } = req.params;
-  const { videoOrders } = req.body; // array of {videoId,order}
+  const { videoIds, videoOrders } = req.body;
 
-  if (!videoOrders || !Array.isArray(videoOrders)) {
-    throw new ApiError(400, "Video orders array is required");
+  // Support both formats: videoIds array or videoOrders array
+  if (videoIds && Array.isArray(videoIds)) {
+    // Frontend sends flat array of IDs
+    await Promise.all(
+      videoIds.map((videoId, index) =>
+        Video.findByIdAndUpdate(videoId, { order: index + 1 }),
+      ),
+    );
+  } else if (videoOrders && Array.isArray(videoOrders)) {
+    // Legacy format: array of {videoId, order}
+    await Promise.all(
+      videoOrders.map(({ videoId, order }) =>
+        Video.findByIdAndUpdate(videoId, { order }),
+      ),
+    );
+  } else {
+    throw new ApiError(400, "videoIds or videoOrders array is required");
   }
-
-  // update each video order
-  await Promise.all(
-    videoOrders.map(({ videoId, order }) =>
-      Video.findByIdAndUpdate(videoId, { order }),
-    ),
-  );
 
   const videos = await Video.find({ course: courseId }).sort({ order: 1 });
 

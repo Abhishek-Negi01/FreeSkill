@@ -1,40 +1,92 @@
-import React, { useContext, useState } from "react";
+import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AuthContext } from "../../context/AuthContext";
-import { questionService } from "../../api/services/questions";
+import { useUser } from "@clerk/clerk-react";
+import useQuestions from "../../hooks/api/useQuestions";
+import useQuestionForm from "../../hooks/ui/useQuestionForm";
 import toast from "react-hot-toast";
-import { FaVideo, FaQuestionCircle } from "react-icons/fa";
+import {
+  FaVideo,
+  FaQuestionCircle,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 
 const AskQuestion = () => {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [loading, setLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const videoId = searchParams.get("videoId");
+  const { isSignedIn } = useUser();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+
+  // Use existing useQuestions hook for creating questions
+  const { createQuestion } = useQuestions();
+
+  // Use form hook for form management
+  const {
+    title,
+    body,
+    loading,
+    errors,
+    setTitle,
+    setBody,
+    setLoading,
+    resetForm,
+    validateForm,
+    getFormData,
+    isFormValid,
+    hasChanges,
+    titleLength,
+    bodyLength,
+    titleRemaining,
+    bodyRemaining,
+    isTitleValid,
+    isBodyValid,
+  } = useQuestionForm();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+      toast.error("Please fix the form errors");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const payload = { title, body };
+      const formData = getFormData();
+      const payload = { ...formData };
+
       if (videoId) {
         payload.videoId = videoId;
       }
-      const response = await questionService.create(payload);
-      toast.success(response?.data?.message || "Question posted successfully!");
-      navigate(videoId ? `/questions/video/${videoId}` : "/questions");
+
+      const result = await createQuestion(payload);
+
+      if (result.success) {
+        resetForm();
+        navigate(videoId ? `/questions/video/${videoId}` : "/questions");
+      }
     } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to post question");
-      console.log(error);
+      console.error("Failed to post question:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  if (!user) {
+  const handleCancel = () => {
+    if (hasChanges) {
+      if (
+        window.confirm(
+          "You have unsaved changes. Are you sure you want to leave?",
+        )
+      ) {
+        navigate("/questions");
+      }
+    } else {
+      navigate("/questions");
+    }
+  };
+
+  if (!isSignedIn) {
     navigate("/login");
     return null;
   }
@@ -95,75 +147,138 @@ const AskQuestion = () => {
           style={{ border: "1px solid #e5e7eb" }}
         >
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Title Field */}
             <div>
-              <label
-                className="block text-sm md:text-base font-semibold mb-2"
-                style={{ color: "#374151" }}
-              >
-                Question Title
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label
+                  className="block text-sm md:text-base font-semibold"
+                  style={{ color: "#374151" }}
+                >
+                  Question Title
+                </label>
+                <span
+                  className={`text-xs font-medium ${
+                    titleRemaining < 20 ? "text-red-500" : "text-gray-500"
+                  }`}
+                >
+                  {titleLength}/200
+                </span>
+              </div>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="What's your question? Be specific."
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:border-transparent transition-all text-sm ${
+                  errors.title
+                    ? "border-red-300 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
                 required
                 disabled={loading}
                 style={{ background: "white", color: "#1f2937" }}
               />
-              <p
-                className="text-xs md:text-sm mt-2"
-                style={{ color: "#9ca3af" }}
-              >
-                Be specific and imagine you're asking a question to another
-                person
-              </p>
+              {errors.title ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <FaExclamationTriangle className="w-4 h-4 text-red-500" />
+                  <p className="text-sm text-red-600">{errors.title}</p>
+                </div>
+              ) : (
+                <p
+                  className="text-xs md:text-sm mt-2"
+                  style={{ color: "#9ca3af" }}
+                >
+                  Be specific and imagine you're asking a question to another
+                  person
+                </p>
+              )}
             </div>
 
+            {/* Body Field */}
             <div>
-              <label
-                className="block text-sm md:text-base font-semibold mb-2"
-                style={{ color: "#374151" }}
-              >
-                Question Body
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label
+                  className="block text-sm md:text-base font-semibold"
+                  style={{ color: "#374151" }}
+                >
+                  Question Body
+                </label>
+                <span
+                  className={`text-xs font-medium ${
+                    bodyRemaining < 100 ? "text-red-500" : "text-gray-500"
+                  }`}
+                >
+                  {bodyLength}/5000
+                </span>
+              </div>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Provide more details about your question..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm resize-none"
+                className={`w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:border-transparent transition-all text-sm resize-none ${
+                  errors.body
+                    ? "border-red-300 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-blue-500"
+                }`}
                 rows={10}
                 required
                 disabled={loading}
                 style={{ background: "white", color: "#1f2937" }}
               />
-              <p
-                className="text-xs md:text-sm mt-2"
-                style={{ color: "#9ca3af" }}
-              >
-                Include all the information someone would need to answer your
-                question
-              </p>
+              {errors.body ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <FaExclamationTriangle className="w-4 h-4 text-red-500" />
+                  <p className="text-sm text-red-600">{errors.body}</p>
+                </div>
+              ) : (
+                <p
+                  className="text-xs md:text-sm mt-2"
+                  style={{ color: "#9ca3af" }}
+                >
+                  Include all the information someone would need to answer your
+                  question
+                </p>
+              )}
             </div>
 
+            {/* Form Validation Summary */}
+            {(errors.title || errors.body) && (
+              <div
+                className="p-4 rounded-lg border-l-4 border-red-400"
+                style={{ background: "#fef2f2" }}
+              >
+                <div className="flex items-center gap-2">
+                  <FaExclamationTriangle className="w-5 h-5 text-red-500" />
+                  <p className="text-sm font-medium text-red-800">
+                    Please fix the following errors:
+                  </p>
+                </div>
+                <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
+                  {errors.title && <li>{errors.title}</li>}
+                  {errors.body && <li>{errors.body}</li>}
+                </ul>
+              </div>
+            )}
+
+            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !isFormValid()}
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 style={{
-                  background: loading
-                    ? "#9ca3af"
-                    : "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                  background:
+                    loading || !isFormValid()
+                      ? "#9ca3af"
+                      : "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
                   color: "white",
                 }}
                 onMouseEnter={(e) => {
-                  if (!loading)
+                  if (!loading && isFormValid())
                     e.currentTarget.style.transform = "translateY(-2px)";
                 }}
                 onMouseLeave={(e) => {
-                  if (!loading)
+                  if (!loading && isFormValid())
                     e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
@@ -179,7 +294,7 @@ const AskQuestion = () => {
 
               <button
                 type="button"
-                onClick={() => navigate("/questions")}
+                onClick={handleCancel}
                 disabled={loading}
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
                 style={{

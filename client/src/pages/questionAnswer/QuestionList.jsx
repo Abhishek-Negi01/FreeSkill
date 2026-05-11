@@ -1,6 +1,7 @@
-import React, { useContext, useEffect, useState } from "react";
-import { AuthContext } from "../../context/AuthContext";
-import { questionService } from "../../api/services/questions";
+import React from "react";
+import { useUser } from "@clerk/clerk-react";
+import useQuestions from "../../hooks/api/useQuestions";
+import useQuestionSearch from "../../hooks/ui/useQuestionSearch";
 import { Link } from "react-router-dom";
 import {
   FaCalendar,
@@ -12,36 +13,28 @@ import {
   FaPlus,
 } from "react-icons/fa";
 import { BsChatDots } from "react-icons/bs";
-import toast from "react-hot-toast";
 
 const QuestionList = () => {
-  const [questions, setQuestions] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const { user } = useContext(AuthContext);
+  const { user } = useUser();
 
-  const filteredQuestions = questions.filter(
-    (q) =>
-      q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      q.body.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  // Use existing useQuestions hook (no videoId = get all questions)
+  const { questions, fetchingQuestions: loading, error } = useQuestions();
 
-  const fetchQuestions = async () => {
-    try {
-      setLoading(true);
-      const response = await questionService.getAll();
-      setQuestions(response.data.data.questions);
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to load questions");
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
+  // Use search hook for filtering
+  const {
+    searchQuery,
+    setSearchQuery,
+    filteredQuestions,
+    clearSearch,
+    isSearching,
+    hasResults,
+    resultCount,
+  } = useQuestionSearch(questions);
+
+  // Format date helper
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString();
   };
-
-  useEffect(() => {
-    fetchQuestions();
-  }, []);
 
   if (loading) {
     return (
@@ -87,7 +80,14 @@ const QuestionList = () => {
               Community Questions
             </h1>
             <p className="text-sm md:text-base" style={{ color: "#6b7280" }}>
-              {questions.length} questions from the community
+              {searchQuery
+                ? `${resultCount} of ${questions.length} questions`
+                : `${questions.length} questions from the community`}
+              {isSearching && (
+                <span className="ml-2 text-xs">
+                  <div className="inline-block w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                </span>
+              )}
             </p>
           </div>
           {user && (
@@ -129,13 +129,21 @@ const QuestionList = () => {
                 className="w-full pl-10 md:pl-12 pr-4 py-2.5 md:py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                 style={{ background: "white", color: "#1f2937" }}
               />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
         )}
 
         {/* Questions List */}
         <div className="space-y-4 animate-fadeIn">
-          {filteredQuestions.length === 0 ? (
+          {!hasResults ? (
             <div
               className="bg-white rounded-xl shadow-lg p-12 text-center"
               style={{ border: "1px solid #e5e7eb" }}
@@ -163,28 +171,42 @@ const QuestionList = () => {
                 style={{ color: "#6b7280" }}
               >
                 {searchQuery
-                  ? "Try adjusting your search"
+                  ? "Try adjusting your search terms"
                   : "Be the first to ask a question!"}
               </p>
-              {user && !searchQuery && (
-                <Link
-                  to="/ask"
+              {searchQuery ? (
+                <button
+                  onClick={clearSearch}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
                   style={{
                     background:
-                      "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                      "linear-gradient(135deg, #6b7280 0%, #4b5563 100%)",
                     color: "white",
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-2px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                  }}
                 >
-                  <FaPlus className="w-4 h-4" />
-                  Ask Question
-                </Link>
+                  Clear Search
+                </button>
+              ) : (
+                user && (
+                  <Link
+                    to="/ask"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                      color: "white",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-2px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }}
+                  >
+                    <FaPlus className="w-4 h-4" />
+                    Ask Question
+                  </Link>
+                )
               )}
             </div>
           ) : (
@@ -238,8 +260,7 @@ const QuestionList = () => {
                       <span className="flex items-center gap-1.5">
                         <FaUser className="w-3 h-3 md:w-4 md:h-4" />
                         <span className="font-medium">
-                          {question.askedBy?.fullname ||
-                            question.askedBy?.username}
+                          {question.askedByUsername || "Anonymous"}
                         </span>
                       </span>
                       <span className="flex items-center gap-1.5">
@@ -259,7 +280,7 @@ const QuestionList = () => {
                       )}
                       <span className="flex items-center gap-1.5">
                         <FaCalendar className="w-3 h-3 md:w-4 md:h-4" />
-                        {new Date(question.createdAt).toLocaleDateString()}
+                        {formatDate(question.createdAt)}
                       </span>
                     </div>
                   </div>

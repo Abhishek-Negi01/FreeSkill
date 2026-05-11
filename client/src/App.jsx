@@ -1,10 +1,9 @@
 import React from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { SignIn, SignUp } from "@clerk/clerk-react";
+import AppProvider from "./context/AppProvider"; // Add this import
 
-import { AuthProvider } from "./context/AuthContext";
 import Home from "./pages/Home";
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import PublicRoute from "./components/layout/PublicRoute";
 import Dashboard from "./pages/courses/Dashboard";
@@ -15,9 +14,6 @@ import QuestionList from "./pages/questionAnswer/QuestionList";
 import QuestionDetail from "./pages/questionAnswer/QuestionDetail";
 import AskQuestion from "./pages/questionAnswer/AskQuestion";
 import VideoQuestions from "./pages/questionAnswer/VideoQuestions";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ResetPassword from "./pages/auth/ResetPassword";
-import VerifyEmail from "./pages/auth/VerifyEmail";
 import NotFound from "./pages/NotFound";
 import Notifications from "./pages/Notifications";
 import Bookmarks from "./pages/Bookmarks";
@@ -26,32 +22,48 @@ import PublicCourseDetail from "./pages/courses/PublicCourseDetail";
 
 const App = () => {
   return (
-    <AuthProvider>
+    <AppProvider>
+      {" "}
+      {/* Wrap everything with AppProvider */}
       <BrowserRouter>
         <Navbar />
         <Routes>
           {/* public routes */}
           <Route path="/" element={<Home />} />
           <Route
-            path="/login"
+            path="/login/*"
             element={
               <PublicRoute>
-                <Login />
+                <div
+                  className="min-h-screen flex items-center justify-center"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                  }}
+                >
+                  <SignIn routing="path" path="/login" signUpUrl="/register" />
+                </div>
               </PublicRoute>
             }
           />
           <Route
-            path="/register"
+            path="/register/*"
             element={
               <PublicRoute>
-                <Register />
+                <div
+                  className="min-h-screen flex items-center justify-center"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+                  }}
+                >
+                  <SignUp routing="path" path="/register" signInUrl="/login" />
+                </div>
               </PublicRoute>
             }
           />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          {/* Question & Answers routes */}
+
+          {/* Q&A routes */}
           <Route path="/questions" element={<QuestionList />} />
           <Route path="/questions/:id" element={<QuestionDetail />} />
           <Route
@@ -59,6 +71,7 @@ const App = () => {
             element={<VideoQuestions />}
           />
 
+          {/* public course routes */}
           <Route path="/public-courses" element={<PublicCourses />} />
           <Route path="/public-courses/:id" element={<PublicCourseDetail />} />
 
@@ -95,7 +108,6 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/notifications"
             element={
@@ -104,7 +116,6 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/bookmarks"
             element={
@@ -117,7 +128,7 @@ const App = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-    </AuthProvider>
+    </AppProvider>
   );
 };
 

@@ -1,40 +1,21 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link, useParams } from "react-router-dom";
-import { questionService } from "../../api/services/questions";
+import useQuestions from "../../hooks/api/useQuestions";
 import {
   FaArrowLeft,
   FaCalendar,
-  FaThumbsDown,
   FaThumbsUp,
   FaUser,
   FaQuestionCircle,
   FaCheckCircle,
 } from "react-icons/fa";
 import { BsChatDots } from "react-icons/bs";
-import toast from "react-hot-toast";
 
 const VideoQuestions = () => {
   const { videoId } = useParams();
-  const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { questions, fetchingQuestions } = useQuestions(videoId);
 
-  const fetchQuestions = async () => {
-    try {
-      const response = await questionService.getByVideo(videoId);
-      setQuestions(response.data.data.questions);
-    } catch (error) {
-      toast.error("Failed to load questions");
-      console.log(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchQuestions();
-  }, [videoId]);
-
-  if (loading) {
+  if (fetchingQuestions) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -43,17 +24,8 @@ const VideoQuestions = () => {
         }}
       >
         <div className="text-center">
-          <div
-            className="spinner"
-            style={{
-              width: "48px",
-              height: "48px",
-              borderWidth: "4px",
-              borderColor: "#3b82f6",
-              borderTopColor: "transparent",
-            }}
-          ></div>
-          <p className="mt-4 text-sm font-medium" style={{ color: "#6b7280" }}>
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-sm font-medium" style={{ color: "#6b7280" }}>
             Loading questions...
           </p>
         </div>
@@ -156,8 +128,7 @@ const VideoQuestions = () => {
                     >
                       <span className="flex items-center gap-1">
                         <FaUser />
-                        {question.askedBy?.fullname ||
-                          question.askedBy?.username}
+                        {question.askedByUsername || "Anonymous"}
                       </span>
                       <span className="flex items-center gap-1">
                         <BsChatDots />

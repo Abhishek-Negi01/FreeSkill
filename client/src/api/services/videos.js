@@ -7,4 +7,6 @@ export const videoServices = {
   markCompleted: (videoId) => api.patch(`/videos/${videoId}/complete`),
   deleteVideo: (videoId) => api.delete(`/videos/${videoId}`),
   getPublicVideos: (courseId) => api.get(`/videos/public/${courseId}`),
+  reorderVideos: (courseId, videoIds) =>
+    api.put(`/videos/${courseId}/reorder/`, { videoIds }),
 };

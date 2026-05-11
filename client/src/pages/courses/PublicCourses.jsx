@@ -1,51 +1,39 @@
-import React, { useEffect, useState } from "react";
-import { courseService } from "../../api/services/courses.js";
+import React, { useState } from "react";
+import usePublicCourses from "../../hooks/api/usePublicCourses";
 import toast from "react-hot-toast";
 import { FaClone, FaEye, FaSearch, FaUser } from "react-icons/fa";
 import { MdPublic } from "react-icons/md";
 import { Link } from "react-router-dom";
 
 const PublicCourses = () => {
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
 
-  useEffect(() => {
-    fetchPublicCourses();
-  }, [page, search]);
+  const {
+    courses,
+    loading,
+    search,
+    page,
+    totalPages,
+    totalCourses,
+    cloneCourse,
+    handleSearch,
+    nextPage,
+    prevPage,
+    hasNextPage,
+    hasPrevPage,
+    isFirstPage,
+  } = usePublicCourses();
 
-  const fetchPublicCourses = async () => {
-    try {
-      setLoading(true);
-      const response = await courseService.getPublicCourses(page, 10, search);
-      setCourses(response.data.data.courses);
-      setTotalPages(response.data.data.totalPages);
-    } catch (error) {
-      toast.error("Failed to load public courses");
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    handleSearch(searchInput);
   };
 
   const handleClone = async (courseId) => {
-    try {
-      await courseService.clonePublicCourse(courseId);
-      toast.success("Course cloned successfully! Check your dashboard.");
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to clone course");
-    }
+    await cloneCourse(courseId);
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setPage(1);
-    fetchPublicCourses();
-  };
-
-  if (loading && page === 1) {
+  if (loading && isFirstPage) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -89,11 +77,12 @@ const PublicCourses = () => {
           </h1>
           <p className="text-sm md:text-base" style={{ color: "#6b7280" }}>
             Discover and clone courses shared by the community
+            {totalCourses > 0 && ` • ${totalCourses} courses available`}
           </p>
         </div>
 
         {/* Search */}
-        <form onSubmit={handleSearch} className="mb-8 animate-fadeIn">
+        <form onSubmit={handleSearchSubmit} className="mb-8 animate-fadeIn">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <div
@@ -104,8 +93,8 @@ const PublicCourses = () => {
               </div>
               <input
                 type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search courses..."
                 className="w-full pl-10 md:pl-12 pr-4 py-2.5 md:py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                 style={{ background: "white", color: "#1f2937" }}
@@ -131,7 +120,7 @@ const PublicCourses = () => {
           </div>
         </form>
 
-        {loading && page === 1 ? (
+        {loading && isFirstPage ? (
           <div className="flex justify-center items-center py-20">
             <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
@@ -155,7 +144,9 @@ const PublicCourses = () => {
               No public courses found
             </h3>
             <p className="text-sm md:text-base" style={{ color: "#6b7280" }}>
-              Try adjusting your search or check back later
+              {search
+                ? "Try adjusting your search"
+                : "Check back later for new courses"}
             </p>
           </div>
         ) : (
@@ -215,7 +206,7 @@ const PublicCourses = () => {
                   >
                     <FaUser className="w-3 h-3 md:w-4 md:h-4" />
                     <span className="font-medium">
-                      {course.creator?.username || "Unknown"}
+                      {course.creatorUsername || "Unknown"}
                     </span>
                   </div>
 
@@ -252,8 +243,8 @@ const PublicCourses = () => {
             {totalPages > 1 && (
               <div className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-8">
                 <button
-                  onClick={() => setPage(page - 1)}
-                  disabled={page === 1}
+                  onClick={prevPage}
+                  disabled={!hasPrevPage}
                   className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-semibold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                   style={{
                     background:
@@ -270,8 +261,8 @@ const PublicCourses = () => {
                   Page {page} of {totalPages}
                 </span>
                 <button
-                  onClick={() => setPage(page + 1)}
-                  disabled={page === totalPages}
+                  onClick={nextPage}
+                  disabled={!hasNextPage}
                   className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-semibold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                   style={{
                     background:

@@ -1,11 +1,10 @@
 import React, { useState } from "react";
-import toast from "react-hot-toast";
-import { youtubeServices } from "../api/services/youtube.js";
+import useYoutube from "../hooks/api/useYoutube";
+import useToggle from "../hooks/ui/useToggle";
 import {
   FaSearch,
   FaPlus,
   FaYoutube,
-  FaClock,
   FaEye,
   FaEyeSlash,
   FaChevronDown,
@@ -14,41 +13,37 @@ import {
 
 const YouTubeSearch = ({ onAddVideo }) => {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [nextPageToken, setNextPageToken] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [open, setOpen] = useState(false);
 
-  const searchVideos = async (e) => {
+  // Use existing useYoutube hook instead of duplicating logic
+  const {
+    searchResults: results,
+    loading,
+    hasMore,
+    searchVideos,
+    loadMore,
+    clearResults: clearYoutubeResults,
+  } = useYoutube();
+
+  const { value: open, toggle: toggleOpen } = useToggle(false);
+
+  const handleSearch = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setHasSearched(true);
-    try {
-      const res = await youtubeServices.search(query);
-      setResults(res.data.data.videos);
-      setNextPageToken(res.data.data.nextPageToken);
-    } catch {
-      toast.error("Failed to search videos");
-    } finally {
-      setLoading(false);
-    }
+    await searchVideos(query);
   };
 
-  const loadMore = async () => {
-    if (!nextPageToken) return;
-    setLoading(true);
-    try {
-      const res = await youtubeServices.search(query, nextPageToken);
-      setResults([...results, ...res.data.data.videos]);
-      setNextPageToken(res.data.data.nextPageToken);
-    } catch {
-      toast.error("Failed to load more videos");
-    } finally {
-      setLoading(false);
-    }
+  const handleLoadMore = async () => {
+    await loadMore(query, "videos");
   };
 
+  const clearResults = () => {
+    clearYoutubeResults();
+    setHasSearched(false);
+    setQuery("");
+  };
+
+  // Move these to utils/formatters.js later
   const formatDuration = (duration) => {
     const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
     const h = (match[1] || "").replace("H", "");
@@ -65,18 +60,12 @@ const YouTubeSearch = ({ onAddVideo }) => {
     return `${n}`;
   };
 
-  const clearResults = () => {
-    setResults([]);
-    setHasSearched(false);
-    setQuery("");
-  };
-
   return (
     <div className="border border-red-200 rounded-xl overflow-hidden bg-red-50/50">
       {/* Toggle Header */}
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={toggleOpen}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-red-50 transition-colors duration-200"
       >
         <div className="flex items-center gap-2.5">
@@ -103,7 +92,7 @@ const YouTubeSearch = ({ onAddVideo }) => {
       {/* Expanded Content */}
       {open && (
         <div className="px-4 pb-4 animate-slideDown">
-          <form onSubmit={searchVideos} className="flex gap-2 mb-3">
+          <form onSubmit={handleSearch} className="flex gap-2 mb-3">
             <div className="relative flex-1">
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
               <input
@@ -207,9 +196,9 @@ const YouTubeSearch = ({ onAddVideo }) => {
                   </div>
                 </div>
               ))}
-              {nextPageToken && (
+              {hasMore && (
                 <button
-                  onClick={loadMore}
+                  onClick={handleLoadMore}
                   disabled={loading}
                   className="w-full py-2 rounded-lg font-semibold text-xs text-white shadow transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50"
                   style={{
